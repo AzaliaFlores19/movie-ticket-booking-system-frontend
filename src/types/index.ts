@@ -1,0 +1,306 @@
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  roleId: number;
+  roleName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Role {
+  id: number;
+  name: string;
+  description?: string;
+}
+
+export interface City {
+  id: number;
+  nombre: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Genre {
+  id: number;
+  nombre: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Language {
+  id: number;
+  nombre: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Cine {
+  id: number;
+  nombre: string;
+  direccion?: string;
+  ciudad_id?: number;
+  ciudad?: City;
+  salas?: Sala[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Sala {
+  id: number;
+  nombre: string;
+  capacidad?: number;
+  tipo?: string;
+  cine_id?: number;
+  cine?: Cine;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Movie {
+  id: number;
+  titulo: string;
+  sinopsis?: string;
+  poster_url?: string;
+  duracion?: number;
+  fecha_estreno?: string;
+  genero_id?: number;
+  genero?: Genre;
+  idioma_id?: number;
+  idioma?: Language;
+  estado?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Funcion {
+  id: number;
+  fecha_hora: string;
+  estado: string;
+  precio?: number;
+  pelicula_id?: number;
+  pelicula?: Movie;
+  sala_id?: number;
+  sala?: Sala;
+  cine?: Cine;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Asiento {
+  id: number;
+  fila: string;
+  columna: number;
+  tipo: string;
+  sala_id?: number;
+}
+
+export interface AsientoFuncion {
+  id: number;
+  estado: string;
+  funcion_id?: number;
+  asiento_id?: number;
+  asiento: Asiento;
+}
+
+export interface Reservation {
+  id: number;
+  codigo?: string;
+  estado: string;
+  total?: number;
+  usuario_id?: number;
+  usuario?: User;
+  funcion_id?: number;
+  funcion?: Funcion;
+  asientos?: AsientoFuncion[];
+  payment?: Payment;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Payment {
+  id: number;
+  monto: number;
+  metodo: string;
+  estado: string;
+  referencia?: string;
+  reserva_id?: number;
+  reserva?: Reservation;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Refund {
+  id: number;
+  monto: number;
+  estado: string;
+  motivo?: string;
+  pago_id?: number;
+  pago?: Payment;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Coupon {
+  id: number;
+  codigo: string;
+  tipo: string;
+  valor: number;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  usos_maximo?: number;
+  usos_actuales?: number;
+  activo?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CancellationPolicy {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+  horas_limite: number;
+  porcentaje_reembolso: number;
+  activo?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReportFilters {
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  ciudad_id?: number;
+  cine_id?: number;
+  pelicula_id?: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+  success?: boolean;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password_hash: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  user: User;
+}
+
+export interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  roleId?: number;
+}
+
+export interface MovieFilters {
+  titulo?: string;
+  genero?: string;
+  idioma?: string;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  ciudad_id?: string;
+}
+
+export interface ReservationCreate {
+  id_funcion: number;
+  asientosFuncionIds: number[];
+  codigo_cupon?: string;
+}
+
+export interface ReservationFilters {
+  estado?: string;
+  usuario_id?: number;
+  funcion_id?: number;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaymentFilters {
+  estado?: string;
+  metodo?: string;
+  reserva_id?: number;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface RefundFilters {
+  estado?: string;
+  pago_id?: number;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface CouponFilters {
+  codigo?: string;
+  activo?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+export interface FuncionFilters {
+  pelicula_id?: number;
+  sala_id?: number;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  estado?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface SalaFilters {
+  nombre?: string;
+  cine_id?: number;
+  page?: number;
+  limit?: number;
+}
+
+export interface CineFilters {
+  nombre?: string;
+  ciudad_id?: number;
+  page?: number;
+  limit?: number;
+}
+
+export interface CityFilters {
+  nombre?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface UserFilters {
+  name?: string;
+  email?: string;
+  roleId?: number;
+  page?: number;
+  limit?: number;
+}
+
+// En tu archivo @/types/index.ts (o donde declares MovieFilters)
+export interface MovieFilters {
+  titulo?: string;
+  ciudad_id?: string;
+  genero?: string;
+  idioma?: string;
+  fecha?: string; // Asegúrate de incluir este campo
+}
