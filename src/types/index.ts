@@ -52,8 +52,12 @@ export interface Sala {
   nombre: string;
   capacidad?: number;
   tipo?: string;
+  filas?: number;
+  columnas?: number;
   cine_id?: number;
-  cine?: Cine;
+  id_cine?: number;
+  cine?: Pick<Cine, 'id' | 'nombre'>;
+  cines?: Pick<Cine, 'id' | 'nombre' | 'direccion'> & { id_ciudad?: number };
   createdAt?: string;
   updatedAt?: string;
 }
