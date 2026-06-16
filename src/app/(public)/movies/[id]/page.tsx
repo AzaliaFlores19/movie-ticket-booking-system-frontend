@@ -62,9 +62,12 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
   };
 
   const filteredCines = (cines || []).filter((c) => {
-    if (!selectedCity) return true;
-    return String(c.ciudad_id) === selectedCity;
-  });
+  if (!selectedCity) return true;
+  
+  const cineCiudadId = c.ciudad?.id || (c as any).ciudad_id;
+  
+  return String(cineCiudadId) === selectedCity;
+});
 
   const groupedFunciones = funciones.reduce<Record<string, Funcion[]>>((acc, f) => {
     const date = format(new Date(f.fecha_hora), 'yyyy-MM-dd');

@@ -23,6 +23,20 @@ export const usersApi = {
     }
   },
 
+  async updateNotifications(enabled: boolean): Promise<{ notificationsEnabled: boolean }> {
+    try {
+      const { data } = await axios.patch('/auth/profile/notifications', { notificationsEnabled: enabled });
+      return data;
+    } catch (error) {
+      console.warn('API de notificaciones falló, actualizando datos Mock localmente');
+      
+      // Llama de forma segura al mock modificado pasando exclusivamente el campo requerido
+      const updatedMock = updateMockProfile({ notificationsEnabled: enabled });
+      
+      return { notificationsEnabled: !!updatedMock.notificationsEnabled };
+    }
+  },
+
   async changePassword(payload: { currentPassword?: string; newPassword?: string }): Promise<{ success: boolean }> {
     try {
       const { data } = await axios.post('/auth/change-password', payload);

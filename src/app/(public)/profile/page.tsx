@@ -2,16 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, LogOut, Loader2, Eye, EyeOff, Edit2, CheckCircle2, AlertTriangle, ArrowLeft } from "lucide-react";
+import { KeyRound, LogOut, Loader2, Eye, EyeOff, Edit2, CheckCircle2, AlertTriangle, ArrowLeft, Bell } from "lucide-react";
 import { AxiosError } from "axios";
 import { usersApi } from "@/services/user.service";
 import { authService } from "@/services/auth.service";
-import ProfileLayout from '@/components/layout/MainLayout'; // Tu Layout que renderiza la Navbar activa
+import ProfileLayout from '@/components/layout/MainLayout';
 
 export default function ProfilePage() {
   const router = useRouter();
 
-  // Estados de datos de usuario
   const [name, setName] = useState("Usuario");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState(""); 
@@ -19,6 +18,9 @@ export default function ProfilePage() {
   
   const [isEditing, setIsEditing] = useState(false);
   const [backupData, setBackupData] = useState({ name: "", email: "", phone: "" }); 
+
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
+  const [isUpdatingNotifications, setIsUpdatingNotifications] = useState<boolean>(false);
 
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -52,6 +54,9 @@ export default function ProfilePage() {
         setEmail(user.email);
         setPhone(user.phone || "");
         setRole(user.roleName || "CLIENTE");
+        
+        setNotificationsEnabled(!!user.notificationsEnabled);
+        
         setBackupData({ name: user.name, email: user.email, phone: user.phone || "" });
       } catch (error) {
         if (error instanceof AxiosError && error.response?.status === 401) return;
@@ -63,6 +68,26 @@ export default function ProfilePage() {
 
     fetchProfileData();
   }, []);
+
+  const handleToggleNotifications = async () => {
+    const nextState = !notificationsEnabled;
+    
+    setNotificationsEnabled(nextState);
+    setIsUpdatingNotifications(true);
+
+    try {
+      const response = await usersApi.updateNotifications(nextState);
+      if (response) {
+        setNotificationsEnabled(!!response.notificationsEnabled);
+      }
+    } catch (error) {
+      console.error("Error al actualizar las notificaciones:", error);
+      setNotificationsEnabled(!nextState); 
+      showTemporaryMessage("error", "No se pudieron guardar tus preferencias de avisos.", "bottom");
+    } finally {
+      setIsUpdatingNotifications(false);
+    }
+  };
 
   const getInitials = (fullName: string) => {
     const parts = fullName.trim().split(/\s+/);
@@ -246,6 +271,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={updating}
+                  //className="px-4 py-2 rounded-xl bg-red-600 "
                   className="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-all flex items-center gap-2 shadow-lg shadow-red-900/20"
                 >
                   {updating && <Loader2 className="w-3 h-3 animate-spin" />}
@@ -254,6 +280,58 @@ export default function ProfilePage() {
               </div>
             )}
           </form>
+
+          {/* 🚀 NUEVA CARD 2: PREFERENCIAS DEL SISTEMA (NOTIFICACIONES) */}
+          <div className="rounded-2xl border border-zinc-800/60 bg-zinc-950 p-6 lg:p-8 space-y-6 shadow-xl">
+            <div className="border-b border-zinc-900 pb-4">
+              <h2 className="text-lg font-bold text-white tracking-tight">Preferencias del Sistema</h2>
+              <p className="text-xs text-zinc-500 mt-0.5">Configura cómo interactúas con las alertas de cinema.</p>
+            </div>
+
+            <div className="flex items-center justify-between border border-zinc-900 rounded-xl p-4 bg-zinc-900/20 gap-4">
+              <div className="flex items-center gap-3 text-sm text-zinc-200 font-medium">
+                <Bell size={18} className={`${notificationsEnabled ? "text-red-500 animate-pulse" : "text-zinc-500"}`} />
+                <div className="flex flex-col gap-0.5">
+                  <span>Avisos de funciones y reservas</span>
+                  <span className="text-[11px] text-zinc-500 font-normal">Recibe alertas sobre tus películas programadas.</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {isUpdatingNotifications && (
+                  <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                )}
+                
+                {/* Switch de botones controlado */}
+                <div className="flex items-center bg-zinc-900 rounded-lg p-0.5 border border-zinc-800">
+                  <button
+                    type="button"
+                    disabled={isUpdatingNotifications}
+                    onClick={handleToggleNotifications}
+                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                      notificationsEnabled 
+                        ? 'bg-red-600 text-white shadow-md shadow-red-900/20' 
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    SÍ
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isUpdatingNotifications}
+                    onClick={handleToggleNotifications}
+                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                      !notificationsEnabled 
+                        ? 'bg-zinc-700 text-white shadow-sm' 
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    NO
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Toast Inferior */}
           {bottomToast.visible && (
@@ -267,7 +345,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* CARD 2: CONFIGURACIÓN DE SEGURIDAD */}
+          {/* CARD 3: CONFIGURACIÓN DE SEGURIDAD */}
           <div className="rounded-2xl border border-zinc-800/60 bg-zinc-950 p-6 lg:p-8 space-y-6 shadow-xl">
             <div className="border-b border-zinc-900 pb-4">
               <h2 className="text-lg font-bold text-white tracking-tight">Seguridad de Cuenta</h2>
@@ -359,7 +437,7 @@ export default function ProfilePage() {
             )}
           </div>
 
-         {/* CERRAR SESIÓN */}
+          {/* CERRAR SESIÓN */}
           <div className="flex justify-center pt-2">
             <button
               type="button"
