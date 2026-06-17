@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, LogOut, Loader2, Eye, EyeOff, Edit2, CheckCircle2, AlertTriangle, ArrowLeft, Bell } from "lucide-react";
+import { KeyRound, LogOut, Loader2, Eye, EyeOff, Edit2, ArrowLeft, Bell } from "lucide-react";
 import { AxiosError } from "axios";
+import { toast } from 'react-toastify';
 import { usersApi } from "@/services/user.service";
 import { authService } from "@/services/auth.service";
 import ProfileLayout from '@/components/layout/MainLayout';
@@ -25,25 +26,12 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   
-  const [topToast, setTopToast] = useState<{ message: string; visible: boolean; type: "success" | "error" }>({ message: "", visible: false, type: "success" });
-  const [bottomToast, setBottomToast] = useState<{ message: string; visible: boolean; type: "success" | "error" }>({ message: "", visible: false, type: "success" });
-
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
 
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-
-  const showTemporaryMessage = (type: "success" | "error", text: string, position: "top" | "bottom" = "bottom") => {
-    if (position === "top") {
-      setTopToast({ message: text, visible: true, type });
-      setTimeout(() => setTopToast((prev) => ({ ...prev, visible: false })), 3500);
-    } else {
-      setBottomToast({ message: text, visible: true, type });
-      setTimeout(() => setBottomToast((prev) => ({ ...prev, visible: false })), 3500);
-    }
-  };
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -60,7 +48,7 @@ export default function ProfilePage() {
         setBackupData({ name: user.name, email: user.email, phone: user.phone || "" });
       } catch (error) {
         if (error instanceof AxiosError && error.response?.status === 401) return;
-        showTemporaryMessage("error", "Error al cargar la configuración del perfil.", "top");
+        toast.error("Error al cargar la configuración del perfil.");
       } finally {
         setLoading(false);
       }
@@ -79,11 +67,12 @@ export default function ProfilePage() {
       const response = await usersApi.updateNotifications(nextState);
       if (response) {
         setNotificationsEnabled(!!response.notificationsEnabled);
+        toast.success(nextState ? "Notificaciones activadas" : "Notificaciones desactivadas");
       }
     } catch (error) {
       console.error("Error al actualizar las notificaciones:", error);
       setNotificationsEnabled(!nextState); 
-      showTemporaryMessage("error", "No se pudieron guardar tus preferencias de avisos.", "bottom");
+      toast.error("No se pudieron guardar tus preferencias de avisos.");
     } finally {
       setIsUpdatingNotifications(false);
     }
@@ -100,7 +89,6 @@ export default function ProfilePage() {
     e.preventDefault();
     try {
       setUpdating(true);
-      setTopToast((t) => ({ ...t, visible: false }));
       
       const updatedUser = await usersApi.updateProfile({ name, email, phone });
       setName(updatedUser.name);
@@ -109,10 +97,10 @@ export default function ProfilePage() {
       
       setBackupData({ name: updatedUser.name, email: updatedUser.email, phone: updatedUser.phone || "" }); 
       setIsEditing(false); 
-      showTemporaryMessage("success", "¡Perfil actualizado con éxito!", "top");
+      toast.success("¡Perfil actualizado con éxito!");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error al actualizar la configuración.";
-      showTemporaryMessage("error", msg, "top");
+      toast.error(msg);
     } finally {
       setUpdating(false);
     }
@@ -123,34 +111,32 @@ export default function ProfilePage() {
     setEmail(backupData.email);
     setPhone(backupData.phone);
     setIsEditing(false);
-    setTopToast((t) => ({ ...t, visible: false }));
   };
 
   const handleUpdatePassword = async () => {
     const passwordRegex = /^(?=.*[A-Z])(?=.*\d)[A-Za-z\d\W_]{8,}$/;
 
     if (!passwordRegex.test(passwords.newPass)) {
-      showTemporaryMessage("error", "Debe tener al menos 8 caracteres, una mayúscula y un número.");
+      toast.error("Debe tener al menos 8 caracteres, una mayúscula y un número.");
       return;
     }
 
     if (passwords.newPass !== passwords.confirm) {
-      showTemporaryMessage("error", "Las nuevas contraseñas no coinciden.");
+      toast.error("Las nuevas contraseñas no coinciden.");
       return;
     }
 
     try {
       setUpdating(true);
-      setBottomToast((t) => ({ ...t, visible: false }));
 
       await usersApi.changePassword({ currentPassword: passwords.current, newPassword: passwords.newPass });
 
-      showTemporaryMessage("success", "¡Contraseña cambiada con éxito!", "bottom");
+      toast.success("¡Contraseña cambiada con éxito!");
       setPasswords({ current: "", newPass: "", confirm: "" });
       setShowChangePassword(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error al restablecer la contraseña.";
-      showTemporaryMessage("error", msg, "bottom");
+      toast.error(msg);
     } finally {
       setUpdating(false);
     }
@@ -192,18 +178,6 @@ export default function ProfilePage() {
               Volver al Inicio
             </button>
           </div>
-
-          {/* Toast Superior */}
-          {topToast.visible && (
-            <div className="flex justify-center animate-fade-in">
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-xl bg-zinc-950 ${
-                topToast.type === "success" ? "border-green-500/30 text-green-400" : "border-red-500/30 text-red-400"
-              }`}>
-                {topToast.type === "success" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-                <span className="text-xs font-semibold tracking-wide">{topToast.message}</span>
-              </div>
-            </div>
-          )}
 
           {/* Avatar Header */}
           <div className="flex flex-col items-center justify-center pt-2 space-y-3">
@@ -332,18 +306,6 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
-
-          {/* Toast Inferior */}
-          {bottomToast.visible && (
-            <div className="flex justify-center animate-fade-in">
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-xl bg-zinc-950 ${
-                bottomToast.type === "success" ? "border-green-500/30 text-green-400" : "border-red-500/30 text-red-400"
-              }`}>
-                {bottomToast.type === "success" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-                <span className="text-xs font-semibold tracking-wide">{bottomToast.message}</span>
-              </div>
-            </div>
-          )}
 
           {/* CARD 3: CONFIGURACIÓN DE SEGURIDAD */}
           <div className="rounded-2xl border border-zinc-800/60 bg-zinc-950 p-6 lg:p-8 space-y-6 shadow-xl">

@@ -4,22 +4,19 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Film, Mail, Lock, Loader2, Eye, EyeOff, AlertCircle, ArrowLeft } from 'lucide-react';
 import { authService } from '@/services/auth.service';
-import { toast } from 'sonner';
+import { toast } from 'react-toastify';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
 
     if (!email || !password) {
       const errorMsg = 'Por favor, rellena todos los campos';
-      setFormError(errorMsg);
       toast.error(errorMsg);
       return;
     }
@@ -39,7 +36,6 @@ export default function LoginPage() {
 
     } catch (err: any) {
       const errorMessage = err?.message || 'Contraseña o correo electrónico incorrectos';
-      setFormError(errorMessage);
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -137,13 +133,6 @@ export default function LoginPage() {
             <h1 className="text-2xl font-bold tracking-tight text-white mb-1">Bienvenido de nuevo</h1>
             <p className="text-xs text-zinc-500">Inicia sesión en tu cuenta para continuar</p>
           </div>
-
-          {formError && (
-            <div className="mb-4 flex items-center gap-2.5 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-xs animate-in fade-in slide-in-from-top-1 duration-200">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{formError}</span>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

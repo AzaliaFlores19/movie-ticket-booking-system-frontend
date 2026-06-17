@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Film, Mail, Loader2, User, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { authService } from '@/services/auth.service';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { toast } from 'react-toastify';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,15 +14,12 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
 
     if (!name.trim() || !email.trim() || !password.trim()) {
       const msg = 'Por favor, rellena todos los campos requeridos.';
-      setFormError(msg);
       toast.error(msg);
       return;
     }
@@ -30,14 +27,12 @@ export default function RegisterPage() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       const msg = 'Por favor, introduce un correo electrónico válido (ejemplo@dominio.com).';
-      setFormError(msg);
       toast.error(msg);
       return;
     }
 
     if (password.length < 6) {
       const msg = 'La contraseña debe tener al menos 6 caracteres.';
-      setFormError(msg);
       toast.error(msg);
       return;
     }
@@ -52,7 +47,6 @@ export default function RegisterPage() {
       }, 600);
     } catch (err: any) {
       const errorMessage = err?.message || 'Hubo un error al intentar crear la cuenta. Inténtalo de nuevo.';
-      setFormError(errorMessage);
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -87,13 +81,6 @@ export default function RegisterPage() {
             <h1 className="text-2xl font-bold tracking-tight text-white mb-1">Crear cuenta</h1>
             <p className="text-xs text-zinc-500">Únete para reservar tus boletos fácilmente.</p>
           </div>
-
-          {formError && (
-            <div className="mb-4 flex items-center gap-2.5 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-xs animate-in fade-in slide-in-from-top-1 duration-200">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{formError}</span>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

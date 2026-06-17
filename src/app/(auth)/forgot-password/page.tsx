@@ -4,21 +4,18 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Film, Mail, Loader2, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { authService } from '@/services/auth.service';
-import { toast } from 'sonner';
+import { toast } from 'react-toastify';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
 
     if (!email.trim()) { 
       const msg = 'Por favor, introduce tu correo electrónico';
-      setFormError(msg);
       toast.error(msg); 
       return; 
     }
@@ -26,7 +23,6 @@ export default function ForgotPasswordPage() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       const msg = 'Por favor, introduce un correo válido con arroba y dominio (ejemplo@dominio.com).';
-      setFormError(msg);
       toast.error(msg);
       return;
     }
@@ -37,7 +33,6 @@ export default function ForgotPasswordPage() {
       setSent(true);
     } catch (err: any) {
       const errorMessage = err?.message || 'Ocurrió un inconveniente. Inténtalo de nuevo.';
-      setFormError(errorMessage);
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -164,13 +159,6 @@ export default function ForgotPasswordPage() {
                   Ingresa tu correo y te enviaremos instrucciones para restablecer tu contraseña.
                 </p>
               </div>
-
-              {formError && (
-                <div className="mb-4 flex items-center gap-2.5 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-xs animate-in fade-in slide-in-from-top-1 duration-200">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
