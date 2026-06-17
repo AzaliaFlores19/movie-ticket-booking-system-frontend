@@ -50,15 +50,15 @@ export const MOCK_USERS: Array<User & { password?: string }> = [
     password: 'password', 
     createdAt: '2024-03-10' 
   },
-  { 
-    id: 4, 
-    name: 'Maria Lopez', 
-    email: 'maria@email.com', 
-    roleId: 3, 
-    roleName: 'CLIENTE', 
-    password: 'password', 
-    createdAt: '2024-03-20' 
-  },
+  { id: 4,  name: 'Maria Lopez',      email: 'maria@email.com',    roleId: 3, roleName: 'CLIENTE',    password: 'password', createdAt: '2024-03-20' },
+  { id: 5,  name: 'Luis Hernández',   email: 'luis@email.com',     roleId: 3, roleName: 'CLIENTE',    password: 'password', createdAt: '2024-04-05' },
+  { id: 6,  name: 'Ana Torres',       email: 'ana@email.com',      roleId: 3, roleName: 'CLIENTE',    password: 'password', createdAt: '2024-04-18' },
+  { id: 7,  name: 'Jorge Ramírez',    email: 'jorge@email.com',    roleId: 3, roleName: 'CLIENTE',    password: 'password', createdAt: '2024-05-02' },
+  { id: 8,  name: 'Sofía Mendoza',    email: 'sofia@email.com',    roleId: 3, roleName: 'CLIENTE',    password: 'password', createdAt: '2024-05-15' },
+  { id: 9,  name: 'Diego Castro',     email: 'diego@email.com',    roleId: 3, roleName: 'CLIENTE',    password: 'password', createdAt: '2024-06-01' },
+  { id: 10, name: 'Valeria Ríos',     email: 'valeria@email.com',  roleId: 3, roleName: 'CLIENTE',    password: 'password', createdAt: '2024-06-20' },
+  { id: 11, name: 'Miguel Flores',    email: 'miguel@email.com',   roleId: 3, roleName: 'CLIENTE',    password: 'password', createdAt: '2024-07-08' },
+  { id: 12, name: 'Gabriela Ortiz',   email: 'gaby@email.com',     roleId: 3, roleName: 'CLIENTE',    password: 'password', createdAt: '2024-07-25' },
 ];
 export const MOCK_CITIES: City[] = [
   { id: 1, nombre: 'Ciudad de México', createdAt: '2024-01-01' },
@@ -91,6 +91,16 @@ export const MOCK_LANGUAGES: Language[] = [
 export const MOCK_MOVIES: Movie[] = [
   { id: 1, titulo: 'Protocolo Sombra', sinopsis: 'Un agente de élite descubre una conspiración.', poster_url: PEXELS_POSTERS[0], duracion: 142, fecha_estreno: '2026-05-15', genero_id: 1, genero: MOCK_GENRES[0], idioma_id: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
   { id: 2, titulo: 'La Última Señal', sinopsis: 'Un radioastrónomo recibe una transmisión misteriosa.', poster_url: PEXELS_POSTERS[1], duracion: 128, fecha_estreno: '2026-04-20', genero_id: 2, genero: MOCK_GENRES[1], idioma_id: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
+  { id: 3, titulo: 'Cosecha de Medianoche', sinopsis: '', poster_url: '', duracion: 105, fecha_estreno: '2026-03-10', genero_id: 3, genero: MOCK_GENRES[2], idioma_id: 2, idioma: MOCK_LANGUAGES[1], estado: 'Activa' },
+  { id: 4, titulo: 'Corazón de la Ciudad', sinopsis: '', poster_url: '', duracion: 115, fecha_estreno: '2026-02-14', genero_id: 4, genero: MOCK_GENRES[3], idioma_id: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
+  { id: 5, titulo: 'Circuito Roto', sinopsis: '', poster_url: '', duracion: 135, fecha_estreno: '2026-01-22', genero_id: 2, genero: MOCK_GENRES[1], idioma_id: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
+  { id: 6, titulo: 'Camino Venenoso', sinopsis: '', poster_url: '', duracion: 118, fecha_estreno: '2025-12-05', genero_id: 1, genero: MOCK_GENRES[0], idioma_id: 2, idioma: MOCK_LANGUAGES[1], estado: 'Activa' },
+  { id: 7, titulo: 'Eclipse Rojo', sinopsis: '', poster_url: '', duracion: 122, fecha_estreno: '2025-11-18', genero_id: 2, genero: MOCK_GENRES[1], idioma_id: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
+  { id: 8, titulo: 'La Mansión del Fin', sinopsis: '', poster_url: '', duracion: 98, fecha_estreno: '2025-10-31', genero_id: 3, genero: MOCK_GENRES[2], idioma_id: 2, idioma: MOCK_LANGUAGES[1], estado: 'Inactiva' },
+  { id: 9, titulo: 'Furia Silenciosa', sinopsis: '', poster_url: '', duracion: 110, fecha_estreno: '2025-09-14', genero_id: 1, genero: MOCK_GENRES[0], idioma_id: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
+  { id: 10, titulo: 'Entre Sombras', sinopsis: '', poster_url: '', duracion: 95, fecha_estreno: '2025-08-20', genero_id: 4, genero: MOCK_GENRES[3], idioma_id: 2, idioma: MOCK_LANGUAGES[1], estado: 'Activa' },
+  { id: 11, titulo: 'Zona Cero', sinopsis: '', poster_url: '', duracion: 130, fecha_estreno: '2025-07-04', genero_id: 2, genero: MOCK_GENRES[1], idioma_id: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
+  { id: 12, titulo: 'El Último Tren', sinopsis: '', poster_url: '', duracion: 108, fecha_estreno: '2025-06-15', genero_id: 3, genero: MOCK_GENRES[2], idioma_id: 2, idioma: MOCK_LANGUAGES[1], estado: 'Inactiva' },
 ];
 
 export const MOCK_FUNCIONES: Funcion[] = [
