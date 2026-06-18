@@ -7,6 +7,7 @@ export interface User {
   roleName?: string;
   createdAt?: string;
   updatedAt?: string;
+  notificationsEnabled?: boolean;
 }
 
 export interface Role {
@@ -65,9 +66,9 @@ export interface Movie {
   poster_url?: string;
   duracion?: number;
   fecha_estreno?: string;
-  genero_id?: number;
+  id_genero?: number;
   genero?: Genre;
-  idioma_id?: number;
+  id_idioma?: number;
   idioma?: Language;
   estado?: string;
   createdAt?: string;
@@ -297,10 +298,3 @@ export interface UserFilters {
 }
 
 // En tu archivo @/types/index.ts (o donde declares MovieFilters)
-export interface MovieFilters {
-  titulo?: string;
-  ciudad_id?: string;
-  genero?: string;
-  idioma?: string;
-  fecha?: string; // Asegúrate de incluir este campo
-}

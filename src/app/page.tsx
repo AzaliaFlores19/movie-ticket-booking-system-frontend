@@ -28,24 +28,32 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const [moviesData, citiesData, genresData, languagesData] = await Promise.all([
-        moviesService.getAll({
+      try {
+        const [moviesData, citiesData, genresData, languagesData] = await Promise.all([
+          // Mapeo exacto hacia los Query DTOs de NestJS:
+          moviesService.getAll({
             titulo: searchTerm || undefined,
             ciudad_id: selectedCity || undefined,
             genero: selectedGenre || undefined,
             idioma: selectedLanguage || undefined,
-            fecha: selectedDate || undefined, 
-        }),
-        citiesService.getAll(),
-        genresService.getAll(),
-        languagesService.getAll()
-      ]);
-      setMovies(moviesData);
-      setCities(citiesData);
-      setGenres(genresData);
-      setLanguages(languagesData);
-      setLoading(false);
+            fecha_inicio: selectedDate || undefined, // Mandamos la fecha seleccionada aquí
+          }),
+          citiesService.getAll().catch(() => []), // Salvaguardas por si fallan los otros endpoints
+          genresService.getAll().catch(() => []),
+          languagesService.getAll().catch(() => [])
+        ]);
+
+        setMovies(moviesData);
+        setCities(citiesData);
+        setGenres(genresData);
+        setLanguages(languagesData);
+      } catch (error) {
+        console.error("Error al buscar información de cartelera", error);
+      } finally {
+        setLoading(false);
+      }
     };
+
     fetchData();
   }, [searchTerm, selectedCity, selectedGenre, selectedLanguage, selectedDate]); 
 
@@ -62,10 +70,8 @@ export default function HomePage() {
 
   return (
     <MainLayout>
-      {/* SECCIÓN HERO - CORREGIDA: Sin overflow-hidden para evitar cortes en el borde */}
+      {/* SECCIÓN HERO */}
       <div className="relative bg-[#0a0a0a] text-zinc-100 pt-16 pb-12 border-b border-zinc-900 z-30">
-        
-        {/* Los degradados ahora se contienen de forma aislada aquí para no romper el flujo */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(220,38,38,0.12),transparent_70%)]" />
         </div>
@@ -87,7 +93,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Barra de Filtros Principal - Contenedor con nivel z-index superior establecido */}
+          {/* Barra de Filtros Principal */}
           <div className="max-w-3xl mx-auto relative z-40">
             <form 
               className="flex flex-col sm:flex-row gap-2.5 bg-[#121212]/90 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]" 
@@ -104,7 +110,7 @@ export default function HomePage() {
                 />
               </div>
 
-              {/* Selector de Ciudades Dropdown - Asegurado sobre cualquier plano visual */}
+              {/* Selector de Ciudades Dropdown */}
               <div className="relative w-full sm:w-auto shrink-0">
                 <button
                   type="button"
@@ -194,7 +200,7 @@ export default function HomePage() {
                       type="date" 
                       value={selectedDate} 
                       onChange={(e) => setSelectedDate(e.target.value)}
-                      className="w-full bg-transparent text-sm outline-none text-white cursor-pointer color-scheme-dark"
+                      className="w-full bg-transparent text-sm outline-none text-white cursor-pointer"
                       style={{ colorScheme: 'dark' }} 
                     />
                   </div>
@@ -205,7 +211,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Grilla de Películas (Cuerpo) */}
+      {/* Grilla de Películas */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-[#0a0a0a]">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold flex items-center gap-2 text-white">

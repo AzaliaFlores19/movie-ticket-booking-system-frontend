@@ -14,12 +14,11 @@ export default function HomePage() {
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Filtramos los datos mock localmente
   const filteredMovies = useMemo(() => {
     return MOCK_MOVIES.filter((movie) => {
       const matchesSearch = movie.titulo.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesGenre = selectedGenre ? String(movie.genero_id) === selectedGenre : true;
-      const matchesLanguage = selectedLanguage ? String(movie.idioma_id) === selectedLanguage : true;
+      const matchesGenre = selectedGenre ? String(movie.id_genero) === selectedGenre : true;
+      const matchesLanguage = selectedLanguage ? String(movie.id_idioma) === selectedLanguage : true;
       return matchesSearch && matchesGenre && matchesLanguage;
     });
   }, [searchTerm, selectedGenre, selectedLanguage]);
