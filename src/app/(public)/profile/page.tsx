@@ -57,8 +57,8 @@ export default function ProfilePage() {
     fetchProfileData();
   }, []);
 
-  const handleToggleNotifications = async () => {
-    const nextState = !notificationsEnabled;
+  const handleUpdateNotifications = async (nextState: boolean) => {
+    if (nextState === notificationsEnabled) return;
     
     setNotificationsEnabled(nextState);
     setIsUpdatingNotifications(true);
@@ -281,7 +281,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     disabled={isUpdatingNotifications}
-                    onClick={handleToggleNotifications}
+                    onClick={() => handleUpdateNotifications(true)}
                     className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
                       notificationsEnabled 
                         ? 'bg-red-600 text-white shadow-md shadow-red-900/20' 
@@ -293,7 +293,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     disabled={isUpdatingNotifications}
-                    onClick={handleToggleNotifications}
+                    onClick={() => handleUpdateNotifications(false)}
                     className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
                       !notificationsEnabled 
                         ? 'bg-zinc-700 text-white shadow-sm' 
