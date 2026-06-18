@@ -19,7 +19,7 @@ const NAV_ITEMS = [
   { label: 'Películas', href: '/admin/movies', icon: Film },
   { label: 'Funciones', href: '/admin/functions', icon: CalendarClock },
   { label: 'Cines', href: '/admin/cinemas', icon: Building2 },
-  { label: 'Salas', href: '/admin/rooms', icon: Monitor },
+  { label: 'Salas', href: '/admin/salas', icon: Monitor },
   { label: 'Ciudades', href: '/admin/cities', icon: MapPin },
   { label: 'Géneros', href: '/admin/genres', icon: Film, roles: ['ADMIN'] },
   { label: 'Idiomas', href: '/admin/languages', icon: Globe, roles: ['ADMIN'] },

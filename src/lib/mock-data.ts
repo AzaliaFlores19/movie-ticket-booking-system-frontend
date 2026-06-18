@@ -67,13 +67,33 @@ export const MOCK_CITIES: City[] = [
 ];
 
 export const MOCK_CINEMAS: Cine[] = [
-  { id: 1, nombre: 'CineMax Central', direccion: 'Av. Principal 123', ciudad_id: 1, ciudad: { id: 1, nombre: 'Ciudad de México' } },
-  { id: 2, nombre: 'Multiplex Norte', direccion: 'Centro Comercial Norte 456', ciudad_id: 2, ciudad: { id: 2, nombre: 'Monterrey' } },
+  { id: 1,  nombre: 'CineMax Central',      direccion: 'Av. Principal 123',              ciudad_id: 1, ciudad: { id: 1, nombre: 'Ciudad de México' } },
+  { id: 2,  nombre: 'Multiplex Norte',       direccion: 'Centro Comercial Norte 456',     ciudad_id: 1, ciudad: { id: 1, nombre: 'Ciudad de México' } },
+  { id: 3,  nombre: 'Cinépolis Sur',         direccion: 'Blvd. del Sur 789',              ciudad_id: 1, ciudad: { id: 1, nombre: 'Ciudad de México' } },
+  { id: 4,  nombre: 'CineMax Monterrey',     direccion: 'Av. Constitución 100',           ciudad_id: 2, ciudad: { id: 2, nombre: 'Monterrey' } },
+  { id: 5,  nombre: 'Cinemex Valle',         direccion: 'Plaza Valle, Local 32',          ciudad_id: 2, ciudad: { id: 2, nombre: 'Monterrey' } },
+  { id: 6,  nombre: 'Cinépolis Guadalajara', direccion: 'Av. Vallarta 2440',              ciudad_id: 3, ciudad: { id: 3, nombre: 'Guadalajara' } },
+  { id: 7,  nombre: 'Cinemex Tapatío',       direccion: 'Centro Histórico, Local 5',      ciudad_id: 3, ciudad: { id: 3, nombre: 'Guadalajara' } },
+  { id: 8,  nombre: 'Multiplex Oriente',     direccion: 'Calz. Ignacio Zaragoza 1300',   ciudad_id: 1, ciudad: { id: 1, nombre: 'Ciudad de México' } },
+  { id: 9,  nombre: 'CineMax Poniente',      direccion: 'Santa Fe, Torre A',              ciudad_id: 1, ciudad: { id: 1, nombre: 'Ciudad de México' } },
+  { id: 10, nombre: 'Cinépolis Cumbres',     direccion: 'Av. Cumbres 500',                ciudad_id: 2, ciudad: { id: 2, nombre: 'Monterrey' } },
+  { id: 11, nombre: 'CineMax Tlaquepaque',   direccion: 'Periférico Sur 4050',            ciudad_id: 3, ciudad: { id: 3, nombre: 'Guadalajara' } },
+  { id: 12, nombre: 'Multiplex Polanco',     direccion: 'Av. Presidente Masaryk 111',    ciudad_id: 1, ciudad: { id: 1, nombre: 'Ciudad de México' } },
 ];
 
 export const MOCK_ROOMS: Sala[] = [
-  { id: 1, nombre: 'Sala 1', capacidad: 80, tipo: '2D', cine_id: 1, cine: { id: 1, nombre: 'CineMax Central' } },
-  { id: 2, nombre: 'Sala 2', capacidad: 60, tipo: '3D', cine_id: 2, cine: { id: 2, nombre: 'Multiplex Norte' } },
+  { id: 1,  nombre: 'Sala 1',   filas: 10, columnas: 15, cine_id: 1, cines: { id: 1, nombre: 'CineMax Central',      direccion: 'Av. Principal 123' } },
+  { id: 2,  nombre: 'Sala 2',   filas: 8,  columnas: 12, cine_id: 1, cines: { id: 1, nombre: 'CineMax Central',      direccion: 'Av. Principal 123' } },
+  { id: 3,  nombre: 'Sala VIP', filas: 5,  columnas: 10, cine_id: 1, cines: { id: 1, nombre: 'CineMax Central',      direccion: 'Av. Principal 123' } },
+  { id: 4,  nombre: 'Sala 1',   filas: 12, columnas: 18, cine_id: 2, cines: { id: 2, nombre: 'Multiplex Norte',      direccion: 'Centro Comercial Norte 456' } },
+  { id: 5,  nombre: 'Sala 2',   filas: 10, columnas: 16, cine_id: 2, cines: { id: 2, nombre: 'Multiplex Norte',      direccion: 'Centro Comercial Norte 456' } },
+  { id: 6,  nombre: 'Sala 3',   filas: 8,  columnas: 14, cine_id: 2, cines: { id: 2, nombre: 'Multiplex Norte',      direccion: 'Centro Comercial Norte 456' } },
+  { id: 7,  nombre: 'Sala 1',   filas: 9,  columnas: 13, cine_id: 3, cines: { id: 3, nombre: 'Cinépolis Sur',        direccion: 'Blvd. del Sur 789' } },
+  { id: 8,  nombre: 'Sala 2',   filas: 7,  columnas: 11, cine_id: 3, cines: { id: 3, nombre: 'Cinépolis Sur',        direccion: 'Blvd. del Sur 789' } },
+  { id: 9,  nombre: 'Sala 1',   filas: 11, columnas: 17, cine_id: 4, cines: { id: 4, nombre: 'CineMax Monterrey',    direccion: 'Av. Constitución 100' } },
+  { id: 10, nombre: 'Sala 2',   filas: 9,  columnas: 15, cine_id: 4, cines: { id: 4, nombre: 'CineMax Monterrey',    direccion: 'Av. Constitución 100' } },
+  { id: 11, nombre: 'Sala VIP', filas: 6,  columnas: 8,  cine_id: 5, cines: { id: 5, nombre: 'Cinemex Valle',        direccion: 'Plaza Valle, Local 32' } },
+  { id: 12, nombre: 'Sala 1',   filas: 10, columnas: 14, cine_id: 6, cines: { id: 6, nombre: 'Cinépolis Guadalajara',direccion: 'Av. Vallarta 2440' } },
 ];
 
 export const MOCK_GENRES: Genre[] = [
