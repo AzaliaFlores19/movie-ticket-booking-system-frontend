@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 const NAV_LINKS = [
   { label: 'Películas', href: '/', icon: Film },
   { label: 'Funciones', href: '/functions', icon: CalendarClock },
-  { label: 'Mis Boletos', href: '/my-bookings', icon: Ticket },
 ];
 
 export default function Navbar() {
@@ -121,7 +120,7 @@ export default function Navbar() {
 
                     {[
                       { label: 'Mis Boletos', href: '/my-bookings', icon: Ticket },
-                      { label: 'Funciones', href: '/functions', icon: CalendarClock },
+                      //{ label: 'Funciones', href: '/functions', icon: CalendarClock },
                     ].map(({ label, href, icon: Icon }) => (
                       <Link
                         key={href}
