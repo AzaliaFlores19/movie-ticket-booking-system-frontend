@@ -137,7 +137,18 @@ export const MOCK_RESERVATIONS: Reservation[] = [
 ];
 
 export const MOCK_PAYMENTS: Payment[] = [
-  { id: 1, monto: 450, metodo: 'TARJETA', estado: 'COMPLETADO', referencia: 'TXN-001', reserva_id: 1, createdAt: '2026-06-10' },
+  { id: 1, monto: 450, metodo: 'TARJETA', estado: 'COMPLETADO', referencia: 'TXN-001', reserva_id: 1, createdAt: '2026-06-09' },
+  { id: 2, monto: 360, metodo: 'TARJETA', estado: 'COMPLETADO', referencia: 'TXN-002', reserva_id: 2, createdAt: '2026-06-10' },
+  { id: 3, monto: 150, metodo: 'EFECTIVO', estado: 'PENDIENTE', referencia: 'TXN-003', reserva_id: 3, createdAt: '2026-06-11' },
+  { id: 4, monto: 900, metodo: 'TARJETA', estado: 'COMPLETADO', referencia: 'TXN-004', reserva_id: 4, createdAt: '2026-06-11' },
+  { id: 5, monto: 300, metodo: 'TRANSFERENCIA', estado: 'FALLIDO', referencia: 'TXN-005', reserva_id: 5, createdAt: '2026-06-12' },
+  { id: 6, monto: 540, metodo: 'TARJETA', estado: 'COMPLETADO', referencia: 'TXN-006', reserva_id: 6, createdAt: '2026-06-12' },
+  { id: 7, monto: 180, metodo: 'EFECTIVO', estado: 'COMPLETADO', referencia: 'TXN-007', reserva_id: 7, createdAt: '2026-06-13' },
+  { id: 8, monto: 720, metodo: 'TARJETA', estado: 'REEMBOLSADO', referencia: 'TXN-008', reserva_id: 8, createdAt: '2026-06-13' },
+  { id: 9, monto: 270, metodo: 'TRANSFERENCIA', estado: 'COMPLETADO', referencia: 'TXN-009', reserva_id: 9, createdAt: '2026-06-14' },
+  { id: 10, monto: 450, metodo: 'TARJETA', estado: 'PENDIENTE', referencia: 'TXN-010', reserva_id: 10, createdAt: '2026-06-14' },
+  { id: 11, monto: 630, metodo: 'TARJETA', estado: 'COMPLETADO', referencia: 'TXN-011', reserva_id: 11, createdAt: '2026-06-15' },
+  { id: 12, monto: 210, metodo: 'EFECTIVO', estado: 'COMPLETADO', referencia: 'TXN-012', reserva_id: 12, createdAt: '2026-06-15' },
 ];
 
 export const MOCK_REFUNDS: Refund[] = [
