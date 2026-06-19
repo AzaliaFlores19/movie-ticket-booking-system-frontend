@@ -3,9 +3,10 @@
 import { useMemo, useState } from 'react';
 import { CalendarClock, Clock, Film, Plus, Search, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { MOCK_CINEMAS, MOCK_FUNCIONES, MOCK_MOVIES, MOCK_ROOMS } from '@/lib/mock-data';
+import { SeatMap } from '@/components/seats/SeatMap';
+import { MOCK_CINEMAS, MOCK_FUNCIONES, MOCK_MOVIES, MOCK_ROOMS, getMockSeatsForFuncion } from '@/lib/mock-data';
 import { functionsService } from '@/services/functions.service';
-import type { Funcion } from '@/types';
+import type { AsientoFuncion, Funcion } from '@/types';
 
 const inputCls = 'w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/60 [color-scheme:dark]';
 
@@ -46,6 +47,9 @@ function buildFunctionFromForm(form: FunctionForm): Funcion {
 }
 
 function FunctionFormFields({ form, onChange }: { form: FunctionForm; onChange: (form: FunctionForm) => void }) {
+  const selectedRoom = MOCK_ROOMS.find((room) => room.id === Number(form.sala_id));
+  const previewSeats = selectedRoom ? getMockSeatsForFuncion(selectedRoom.id) as AsientoFuncion[] : [];
+
   return (
     <>
       <div>
@@ -95,6 +99,14 @@ function FunctionFormFields({ form, onChange }: { form: FunctionForm; onChange: 
           <option value="AGOTADO">Agotado</option>
           <option value="CANCELADO">Cancelado</option>
         </select>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-zinc-300">Distribucion de asientos</label>
+          <span className="text-xs text-zinc-500">{selectedRoom ? `${selectedRoom.filas ?? 8} filas x ${selectedRoom.columnas ?? 10} columnas` : 'Seleccione una sala'}</span>
+        </div>
+        <SeatMap seats={previewSeats} readOnly compact />
       </div>
     </>
   );
@@ -219,8 +231,8 @@ export default function FunctionsAdminPage() {
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl">
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-800">
+          <div className="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto scrollbar-hide">
+            <div className="sticky top-0 z-10 bg-zinc-900 flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-800">
               <h2 className="text-lg font-semibold text-white">Crear nueva funcion</h2>
               <button type="button" onClick={() => setFormOpen(false)} className="text-zinc-400 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
