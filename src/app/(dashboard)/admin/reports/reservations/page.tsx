@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import {
-  Search, Ticket, Eye, CheckCircle2, XCircle,
+  Search, Ticket, Eye, CheckCircle2, XCircle, Download,
   Film, Clock, User as UserIcon, Armchair, CalendarClock,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -41,8 +41,16 @@ function formatDateTime(value?: string) {
 
 function funcionLabel(funcionId: number) {
   const f = MOCK_FUNCIONES.find((x) => x.id === funcionId);
-  if (!f) return `Función #${funcionId}`;
-  return `${f.pelicula?.titulo ?? 'Película'} · ${formatDateTime(f.fecha_hora)}`;
+  if (!f) return `Funcion #${funcionId}`;
+  return `${f.pelicula?.titulo ?? 'Pelicula'} · ${formatDateTime(f.fecha_hora)}`;
+}
+
+const CSV_DELIM = ';';
+
+// Escapa un valor para CSV (comillas, separador y saltos de línea)
+function csvCell(value: unknown) {
+  const str = value == null ? '' : String(value);
+  return /["\n;,]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
 export default function ReportsReservationsAdminPage() {
@@ -75,6 +83,58 @@ export default function ReportsReservationsAdminPage() {
     return matchesSearch && matchesEstado && matchesInicio && matchesFin;
   });
 
+  function exportCsv() {
+    if (filtered.length === 0) {
+      toast.info('No hay reservas para exportar');
+      return;
+    }
+
+    const headers = ['Codigo', 'Cliente', 'Pelicula', 'Funcion', 'Total', 'Estado', 'Fecha'];
+    const rows = filtered.map((r) => [
+      r.codigo ?? `#${r.id}`,
+      r.usuario?.name ?? '',
+      r.funcion?.pelicula?.titulo ?? (r.funcion_id ? funcionLabel(r.funcion_id) : ''),
+      formatDateTime(r.funcion?.fecha_hora),
+      r.total ?? 0,
+      r.estado,
+      formatDateTime(r.createdAt),
+    ]);
+
+    const totalImporte = filtered.reduce((sum, r) => sum + (r.total ?? 0), 0);
+
+    // Cabecera del documento con metadatos y filtros aplicados
+    const meta: string[][] = [
+      ['Reporte de Reservas'],
+      ['Generado', new Date().toLocaleString('es-MX')],
+      ['Estado', estadoFilter || 'Todos'],
+      ['Rango de fechas', `${fechaInicio || 'Inicio'} a ${fechaFin || 'Hoy'}`],
+      ['Total de reservas', String(filtered.length)],
+      [],
+    ];
+
+    const footer: string[][] = [
+      [],
+      ['', '', '', 'TOTAL', String(totalImporte), '', ''],
+    ];
+
+    // BOM (acentos en Excel) + 'sep=;' para forzar a Excel a separar por columnas
+    const csv = '﻿sep=' + CSV_DELIM + '\r\n' + [...meta, headers, ...rows, ...footer]
+      .map((row) => row.map(csvCell).join(CSV_DELIM))
+      .join('\r\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `reporte-reservas-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success(`${filtered.length} reserva${filtered.length !== 1 ? 's' : ''} exportada${filtered.length !== 1 ? 's' : ''}`);
+  }
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
@@ -86,6 +146,13 @@ export default function ReportsReservationsAdminPage() {
           <h1 className="text-2xl font-bold text-white">Reporte de Reservas</h1>
           <p className="text-sm text-zinc-400 mt-1">Consultar y filtrar reservas registradas</p>
         </div>
+        <button
+          onClick={exportCsv}
+          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          Exportar CSV
+        </button>
       </div>
 
       {/* Table Card */}
