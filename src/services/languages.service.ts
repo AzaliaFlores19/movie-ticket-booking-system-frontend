@@ -11,4 +11,18 @@ export const languagesService = {
       return MOCK_LANGUAGES;
     }
   },
+
+  async create(language: Omit<Language, 'id' | 'createdAt' | 'updatedAt'>): Promise<Language> {
+    const { data } = await axios.post('/languages', language);
+    return data;
+  },
+
+  async update(id: number, language: Partial<Language>): Promise<Language> {
+    const { data } = await axios.put(`/languages/${id}`, language);
+    return data;
+  },
+
+  async delete(id: number): Promise<void> {
+    await axios.delete(`/languages/${id}`);
+  }
 };
