@@ -137,6 +137,17 @@ export const MOCK_FUNCIONES: Funcion[] = [
   { id: 3, fecha_hora: '2026-06-12T20:00:00Z', estado: 'DISPONIBLE', precio: 150, pelicula_id: 2, pelicula: MOCK_MOVIES[1], sala_id: 2, sala: MOCK_ROOMS[1], cine: MOCK_CINEMAS[1] },
   { id: 4, fecha_hora: '2026-06-12T22:30:00Z', estado: 'DISPONIBLE', precio: 180, pelicula_id: 3, pelicula: MOCK_MOVIES[2], sala_id: 3, sala: MOCK_ROOMS[2], cine: MOCK_CINEMAS[2] },
   { id: 5, fecha_hora: '2026-06-12T23:00:00Z', estado: 'DISPONIBLE', precio: 150, pelicula_id: 4, pelicula: MOCK_MOVIES[3], sala_id: 4, sala: MOCK_ROOMS[3], cine: MOCK_CINEMAS[3] },
+  // Funciones futuras para reservas con días de anticipación (hoy: 2026-06-20)
+  { id: 6,  fecha_hora: '2026-06-21T16:00:00Z', estado: 'DISPONIBLE', precio: 150, pelicula_id: 1, pelicula: MOCK_MOVIES[0], sala_id: 1, sala: MOCK_ROOMS[0], cine: MOCK_CINEMAS[0] },
+  { id: 7,  fecha_hora: '2026-06-21T19:30:00Z', estado: 'DISPONIBLE', precio: 180, pelicula_id: 2, pelicula: MOCK_MOVIES[1], sala_id: 2, sala: MOCK_ROOMS[1], cine: MOCK_CINEMAS[1] },
+  { id: 8,  fecha_hora: '2026-06-22T20:00:00Z', estado: 'AGOTADO',    precio: 150, pelicula_id: 3, pelicula: MOCK_MOVIES[2], sala_id: 3, sala: MOCK_ROOMS[2], cine: MOCK_CINEMAS[2] },
+  { id: 9,  fecha_hora: '2026-06-23T18:00:00Z', estado: 'DISPONIBLE', precio: 180, pelicula_id: 4, pelicula: MOCK_MOVIES[3], sala_id: 4, sala: MOCK_ROOMS[3], cine: MOCK_CINEMAS[3] },
+  { id: 10, fecha_hora: '2026-06-25T21:00:00Z', estado: 'DISPONIBLE', precio: 150, pelicula_id: 5, pelicula: MOCK_MOVIES[4], sala_id: 5, sala: MOCK_ROOMS[4], cine: MOCK_CINEMAS[1] },
+  { id: 11, fecha_hora: '2026-06-27T17:00:00Z', estado: 'DISPONIBLE', precio: 200, pelicula_id: 1, pelicula: MOCK_MOVIES[0], sala_id: 6, sala: MOCK_ROOMS[5], cine: MOCK_CINEMAS[1] },
+  { id: 12, fecha_hora: '2026-06-28T22:30:00Z', estado: 'CANCELADO',  precio: 150, pelicula_id: 2, pelicula: MOCK_MOVIES[1], sala_id: 7, sala: MOCK_ROOMS[6], cine: MOCK_CINEMAS[2] },
+  { id: 13, fecha_hora: '2026-07-01T19:00:00Z', estado: 'DISPONIBLE', precio: 180, pelicula_id: 3, pelicula: MOCK_MOVIES[2], sala_id: 8, sala: MOCK_ROOMS[7], cine: MOCK_CINEMAS[2] },
+  { id: 14, fecha_hora: '2026-07-03T20:30:00Z', estado: 'DISPONIBLE', precio: 200, pelicula_id: 5, pelicula: MOCK_MOVIES[4], sala_id: 9, sala: MOCK_ROOMS[8], cine: MOCK_CINEMAS[3] },
+  { id: 15, fecha_hora: '2026-07-05T16:30:00Z', estado: 'DISPONIBLE', precio: 150, pelicula_id: 4, pelicula: MOCK_MOVIES[3], sala_id: 10, sala: MOCK_ROOMS[9], cine: MOCK_CINEMAS[3] },
 ];
 
 export const MOCK_RESERVATIONS: Reservation[] = [
