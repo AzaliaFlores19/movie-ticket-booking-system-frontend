@@ -1,4 +1,4 @@
-import { Movie, Cine,  Funcion, User, Role, City, Sala, Genre, Language, Coupon, Payment, Refund, CancellationPolicy, Reservation } from '@/types';
+import { Movie, Cine,  Funcion, User, Role, City, Sala, Genre, Language, Coupon, Payment, Refund, CancellationPolicy, Reservation, AsientoFuncion } from '@/types';
 import { Pixelify_Sans } from 'next/font/google';
 
 export const PEXELS_POSTERS = [
@@ -139,9 +139,61 @@ export const MOCK_FUNCIONES: Funcion[] = [
   { id: 5, fecha_hora: '2026-06-12T23:00:00Z', estado: 'DISPONIBLE', precio: 150, pelicula_id: 4, pelicula: MOCK_MOVIES[3], sala_id: 4, sala: MOCK_ROOMS[3], cine: MOCK_CINEMAS[3] },
 ];
 
+// Helper para construir asientos de una reserva de forma compacta.
+function mockAsientos(labels: string[], startId: number): AsientoFuncion[] {
+  return labels.map((label, i) => ({
+    id: startId + i,
+    estado: 'RESERVADO',
+    asiento: {
+      id: startId + i,
+      fila: label.charAt(0),
+      columna: Number(label.slice(1)),
+      tipo: 'NORMAL',
+    },
+  }));
+}
+
 export const MOCK_RESERVATIONS: Reservation[] = [
-  { id: 1, codigo: 'RES-001', estado: 'CONFIRMADA', total: 450, usuario_id: 3, usuario: MOCK_USERS[2], funcion_id: 1, funcion: MOCK_FUNCIONES[0], createdAt: '2026-06-10' },
-  { id: 2, codigo: 'RES-002', estado: 'PAGADA', total: 360, usuario_id: 4, usuario: MOCK_USERS[3], funcion_id: 2, funcion: MOCK_FUNCIONES[1], createdAt: '2026-06-11' },
+  {
+    id: 1, codigo: 'RES-001', estado: 'CONFIRMADA', total: 450, usuario_id: 3, usuario: MOCK_USERS[2],
+    funcion_id: 101,
+    funcion: { id: 101, fecha_hora: '2026-06-25T20:00:00Z', estado: 'DISPONIBLE', precio: 150, pelicula_id: 1, pelicula: MOCK_MOVIES[0], sala_id: 3, sala: MOCK_ROOMS[2], cine: MOCK_CINEMAS[0] },
+    asientos: mockAsientos(['E5', 'E6', 'E7'], 1),
+    payment: { id: 1, monto: 450, metodo: 'TARJETA', estado: 'COMPLETADO', referencia: 'TXN-001' },
+    createdAt: '2026-06-10',
+  },
+  {
+    id: 2, codigo: 'RES-002', estado: 'PAGADA', total: 360, usuario_id: 3, usuario: MOCK_USERS[2],
+    funcion_id: 102,
+    funcion: { id: 102, fecha_hora: '2026-06-28T17:30:00Z', estado: 'DISPONIBLE', precio: 180, pelicula_id: 2, pelicula: MOCK_MOVIES[1], sala_id: 4, sala: MOCK_ROOMS[3], cine: MOCK_CINEMAS[1] },
+    asientos: mockAsientos(['C8', 'C9'], 10),
+    payment: { id: 2, monto: 360, metodo: 'TARJETA', estado: 'COMPLETADO', referencia: 'TXN-002' },
+    createdAt: '2026-06-12',
+  },
+  {
+    id: 3, codigo: 'RES-003', estado: 'PAGADA', total: 150, usuario_id: 3, usuario: MOCK_USERS[2],
+    funcion_id: 103,
+    funcion: { id: 103, fecha_hora: '2026-07-02T22:00:00Z', estado: 'DISPONIBLE', precio: 150, pelicula_id: 5, pelicula: MOCK_MOVIES[4], sala_id: 1, sala: MOCK_ROOMS[0], cine: MOCK_CINEMAS[0] },
+    asientos: mockAsientos(['A1'], 20),
+    payment: { id: 3, monto: 150, metodo: 'EFECTIVO', estado: 'COMPLETADO', referencia: 'TXN-003' },
+    createdAt: '2026-06-15',
+  },
+  {
+    id: 4, codigo: 'RES-004', estado: 'USADA', total: 300, usuario_id: 3, usuario: MOCK_USERS[2],
+    funcion_id: 104,
+    funcion: { id: 104, fecha_hora: '2026-06-05T19:00:00Z', estado: 'FINALIZADA', precio: 150, pelicula_id: 3, pelicula: MOCK_MOVIES[2], sala_id: 2, sala: MOCK_ROOMS[1], cine: MOCK_CINEMAS[0] },
+    asientos: mockAsientos(['D4', 'D5'], 30),
+    payment: { id: 4, monto: 300, metodo: 'TARJETA', estado: 'COMPLETADO', referencia: 'TXN-004' },
+    createdAt: '2026-05-30',
+  },
+  {
+    id: 5, codigo: 'RES-005', estado: 'CANCELADA', total: 180, usuario_id: 3, usuario: MOCK_USERS[2],
+    funcion_id: 105,
+    funcion: { id: 105, fecha_hora: '2026-05-20T21:30:00Z', estado: 'FINALIZADA', precio: 180, pelicula_id: 4, pelicula: MOCK_MOVIES[3], sala_id: 4, sala: MOCK_ROOMS[3], cine: MOCK_CINEMAS[1] },
+    asientos: mockAsientos(['B2'], 40),
+    payment: { id: 5, monto: 180, metodo: 'TRANSFERENCIA', estado: 'REEMBOLSADO', referencia: 'TXN-005' },
+    createdAt: '2026-05-15',
+  },
 ];
 
 export const MOCK_PAYMENTS: Payment[] = [
