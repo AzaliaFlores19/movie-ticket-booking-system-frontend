@@ -291,6 +291,28 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
                 {isStaff ? 'Nueva Reserva' : 'Tu Reserva'}
               </h2>
 
+              {isStaff && (
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-zinc-400 mb-1.5 flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-zinc-500" />
+                    Reservar para
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={clienteId ?? ''}
+                      onChange={(e) => setClienteId(e.target.value ? Number(e.target.value) : null)}
+                      className="w-full appearance-none bg-zinc-800 border border-zinc-700/40 rounded-xl pl-3 pr-9 py-2 text-sm text-zinc-100 outline-none focus:border-red-500/50 [color-scheme:dark] cursor-pointer"
+                    >
+                      <option value="">Selecciona un cliente...</option>
+                      {CLIENTES.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name} — {c.email}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-zinc-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between text-zinc-400">
                   <span>Asientos</span>
