@@ -1,6 +1,6 @@
 import axios from '@/lib/axios';
-import { MOCK_FUNCIONES } from '@/lib/mock-data';
-import { Funcion, FuncionFilters } from '@/types';
+import { getMockFuncionById, getMockSeatsForFuncion, MOCK_FUNCIONES } from '@/lib/mock-data';
+import { AsientoFuncion, Funcion, FuncionFilters } from '@/types';
 
 type ApiEnvelope<T> = T | { data: T };
 
@@ -13,7 +13,7 @@ export const functionsService = {
     try {
       const { data } = await axios.get<Funcion[]>('/funciones', { params: filters });
       return unwrapData<Funcion[]>(data);
-    } catch {
+    } catch (error) {
       console.warn('API call failed, using mock data for functions');
       return MOCK_FUNCIONES as Funcion[];
     }
@@ -32,5 +32,23 @@ export const functionsService = {
   async cancel(id: number): Promise<Funcion> {
     const { data } = await axios.patch<Funcion>(`/funciones/${id}/cancelar`);
     return unwrapData<Funcion>(data);
+  },
+
+  async getOne(id: number): Promise<Funcion | null> {
+    try {
+      const { data } = await axios.get<Funcion>(`/funciones/${id}`);
+      return unwrapData<Funcion>(data);
+    } catch {
+      return getMockFuncionById(id) as Funcion | null;
+    }
+  },
+
+  async getSeats(funcionId: number): Promise<AsientoFuncion[]> {
+    try {
+      const { data } = await axios.get<AsientoFuncion[]>(`/funciones/${funcionId}/asientos`);
+      return unwrapData<AsientoFuncion[]>(data);
+    } catch {
+      return getMockSeatsForFuncion(funcionId) as AsientoFuncion[];
+    }
   },
 };
