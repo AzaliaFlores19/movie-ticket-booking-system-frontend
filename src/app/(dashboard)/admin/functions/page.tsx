@@ -34,6 +34,12 @@ function formatFunctionTime(value?: string) {
   return value?.split('T')[1]?.slice(0, 5) || '-';
 }
 
+function formatFunctionDateTime(value?: string) {
+  const date = formatFunctionDate(value);
+  const time = formatFunctionTime(value);
+  return date === '-' ? '-' : `${date} ${time}`;
+}
+
 function toDateTimeLocal(value?: string) {
   if (!value) return '';
   const date = new Date(value);
@@ -332,7 +338,7 @@ export default function FunctionsAdminPage() {
             <div className="px-6 py-5 space-y-4">
               <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
                 <p className="text-sm font-medium text-zinc-100">{cancelTarget.pelicula?.titulo}</p>
-                <p className="text-xs text-zinc-500 mt-1">{new Date(cancelTarget.fecha_hora).toLocaleString()}</p>
+                <p className="text-xs text-zinc-500 mt-1">{formatFunctionDateTime(cancelTarget.fecha_hora)}</p>
                 <p className="text-xs text-red-300 mt-3">{affectedCount(cancelTarget)} cliente/asiento posiblemente afectado.</p>
               </div>
               <div className="flex justify-end gap-3">
