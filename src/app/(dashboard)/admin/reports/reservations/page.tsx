@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import {
-  Search, Ticket, Eye, CheckCircle2, XCircle, Download,
+  Search, Ticket, Eye, CheckCircle2, Trash, Download,
   Film, Clock, User as UserIcon, Armchair, CalendarClock,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -204,7 +204,7 @@ export default function ReportsReservationsAdminPage() {
                 onClick={() => { setFechaInicio(''); setFechaFin(''); setPage(1); }}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-400 hover:text-red-400 transition-colors"
               >
-                <XCircle className="w-3.5 h-3.5" />
+                <Trash className="w-3.5 h-3.5" />
                 Limpiar fechas
               </button>
             )}
@@ -287,7 +287,7 @@ export default function ReportsReservationsAdminPage() {
                           title="Cancelar"
                           className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                         >
-                          <XCircle className="w-4 h-4" />
+                          <Trash className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -338,7 +338,7 @@ export default function ReportsReservationsAdminPage() {
                 </div>
               </div>
               <button onClick={() => setViewing(null)} className="text-zinc-400 hover:text-white transition-colors">
-                <XCircle className="w-5 h-5" />
+                <Trash className="w-5 h-5" />
               </button>
             </div>
 
