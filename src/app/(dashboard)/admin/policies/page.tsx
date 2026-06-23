@@ -71,16 +71,13 @@ export default function PoliciesAdminPage() {
     const payload = { ...form, descripcion: form.descripcion || undefined };
     if (showCreate) {
       const newPolicy: CancellationPolicy = { id: Date.now(), ...payload, activo: true, createdAt: new Date().toISOString() };
-      setPolicies((prev) => {
-        const hadActive = prev.some((p) => p.activo);
-        const updated = prev.map((p) => ({ ...p, activo: false }));
-        if (hadActive) {
-          toast.success('Política creada y activada. La política anterior fue desactivada.');
-        } else {
-          toast.success('Política creada y activada correctamente.');
-        }
-        return [newPolicy, ...updated];
-      });
+      const hadActive = policies.some((p) => p.activo);
+      setPolicies((prev) => [newPolicy, ...prev.map((p) => ({ ...p, activo: false }))]);
+      if (hadActive) {
+        toast.success('Política creada y activada. La política anterior fue desactivada.');
+      } else {
+        toast.success('Política creada y activada correctamente.');
+      }
     } else if (editingPolicy) {
       setPolicies((prev) => prev.map((p) => p.id === editingPolicy.id ? { ...p, ...payload } : p));
       toast.success('Política actualizada correctamente.');
@@ -99,16 +96,13 @@ export default function PoliciesAdminPage() {
       setPolicies((prev) => prev.map((p) => p.id === policy.id ? { ...p, activo: false } : p));
       toast.info('Política desactivada.');
     } else {
-      setPolicies((prev) => {
-        const previousActive = prev.find((p) => p.activo);
-        const updated = prev.map((p) => ({ ...p, activo: p.id === policy.id }));
-        if (previousActive) {
-          toast.success(`"${policy.nombre}" activada. "${previousActive.nombre}" fue desactivada.`);
-        } else {
-          toast.success(`"${policy.nombre}" activada.`);
-        }
-        return updated;
-      });
+      const previousActive = policies.find((p) => p.activo);
+      setPolicies((prev) => prev.map((p) => ({ ...p, activo: p.id === policy.id })));
+      if (previousActive) {
+        toast.success(`"${policy.nombre}" activada. "${previousActive.nombre}" fue desactivada.`);
+      } else {
+        toast.success(`"${policy.nombre}" activada.`);
+      }
     }
   }
 
