@@ -6,6 +6,12 @@ import Link from 'next/link';
 import { CalendarClock, CreditCard, MapPin, Ticket } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 
+function formatShowtime(value?: string | null) {
+  if (!value) return '-';
+  const [date, time = ''] = value.replace('Z', '').split('T');
+  return time ? `${date} ${time.slice(0, 5)}` : date;
+}
+
 function CheckoutContent() {
   const params = useSearchParams();
   const seats = params.get('seats')?.split(',').filter(Boolean) ?? [];
@@ -33,7 +39,7 @@ function CheckoutContent() {
                 <h2 className="text-lg font-semibold text-white">{movie}</h2>
                 <div className="mt-2 space-y-1 text-sm text-zinc-400">
                   <p className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{cine} - {sala}</p>
-                  <p className="flex items-center gap-1.5"><CalendarClock className="h-3.5 w-3.5" />{showtime ? new Date(showtime).toLocaleString() : '-'}</p>
+                  <p className="flex items-center gap-1.5"><CalendarClock className="h-3.5 w-3.5" />{formatShowtime(showtime)}</p>
                 </div>
               </div>
             </div>
