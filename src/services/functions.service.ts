@@ -23,4 +23,9 @@ export const functionsService = {
     const { data } = await axios.post<Funcion>('/funciones', payload);
     return unwrapData<Funcion>(data);
   },
+
+  async update(id: number, payload: Partial<Funcion>): Promise<Funcion> {
+    const { data } = await axios.put<Funcion>(`/funciones/${id}`, payload);
+    return unwrapData<Funcion>(data);
+  },
 };

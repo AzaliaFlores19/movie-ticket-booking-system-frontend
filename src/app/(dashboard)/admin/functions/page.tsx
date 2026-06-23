@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CalendarClock, Clock, Film, Plus, Search, X } from 'lucide-react';
+import { CalendarClock, Clock, Film, Pencil, Plus, Search, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { SeatMap } from '@/components/seats/SeatMap';
 import { MOCK_CINEMAS, MOCK_FUNCIONES, MOCK_MOVIES, MOCK_ROOMS, getMockSeatsForFuncion } from '@/lib/mock-data';
@@ -34,13 +34,30 @@ function formatFunctionTime(value?: string) {
   return value?.split('T')[1]?.slice(0, 5) || '-';
 }
 
-function buildFunctionFromForm(form: FunctionForm): Funcion {
+function toDateTimeLocal(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function toFormValues(funcion: Funcion): FunctionForm {
+  return {
+    pelicula_id: String(funcion.pelicula_id ?? funcion.pelicula?.id ?? ''),
+    sala_id: String(funcion.sala_id ?? funcion.sala?.id ?? ''),
+    fecha_hora: toDateTimeLocal(funcion.fecha_hora),
+    estado: funcion.estado ?? 'DISPONIBLE',
+  };
+}
+
+function buildFunctionFromForm(form: FunctionForm, base?: Funcion): Funcion {
   const movie = MOCK_MOVIES.find((item) => item.id === Number(form.pelicula_id));
   const room = MOCK_ROOMS.find((item) => item.id === Number(form.sala_id));
   const cinema = MOCK_CINEMAS.find((item) => item.id === (room?.cine_id ?? room?.id_cine ?? room?.cines?.id));
 
   return {
-    id: Date.now(),
+    ...base,
+    id: base?.id ?? Date.now(),
     pelicula_id: Number(form.pelicula_id),
     pelicula: movie,
     sala_id: Number(form.sala_id),
@@ -115,6 +132,7 @@ export default function FunctionsAdminPage() {
   const [functions, setFunctions] = useState<Funcion[]>(MOCK_FUNCIONES);
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+  const [editingFunction, setEditingFunction] = useState<Funcion | null>(null);
   const [form, setForm] = useState<FunctionForm>(EMPTY_FORM);
 
   const filteredFunctions = useMemo(() => {
@@ -130,20 +148,44 @@ export default function FunctionsAdminPage() {
     });
   }, [functions, search]);
 
+  function openCreate() {
+    setEditingFunction(null);
+    setForm(EMPTY_FORM);
+    setFormOpen(true);
+  }
+
+  function openEdit(funcion: Funcion) {
+    setEditingFunction(funcion);
+    setForm(toFormValues(funcion));
+    setFormOpen(true);
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const payload = buildFunctionFromForm(form);
+    const payload = buildFunctionFromForm(form, editingFunction ?? undefined);
 
-    setFunctions((prev) => [payload, ...prev]);
-    functionsService.create({
-      pelicula_id: payload.pelicula_id,
-      sala_id: payload.sala_id,
-      fecha_hora: payload.fecha_hora,
-      estado: payload.estado,
-    }).catch(() => undefined);
-    toast.success('Funcion creada correctamente');
+    if (editingFunction) {
+      setFunctions((prev) => prev.map((item) => (item.id === editingFunction.id ? payload : item)));
+      functionsService.update(editingFunction.id, {
+        pelicula_id: payload.pelicula_id,
+        sala_id: payload.sala_id,
+        fecha_hora: payload.fecha_hora,
+        estado: payload.estado,
+      }).catch(() => undefined);
+      toast.success('Funcion actualizada correctamente');
+    } else {
+      setFunctions((prev) => [payload, ...prev]);
+      functionsService.create({
+        pelicula_id: payload.pelicula_id,
+        sala_id: payload.sala_id,
+        fecha_hora: payload.fecha_hora,
+        estado: payload.estado,
+      }).catch(() => undefined);
+      toast.success('Funcion creada correctamente');
+    }
 
     setFormOpen(false);
+    setEditingFunction(null);
     setForm(EMPTY_FORM);
   }
 
@@ -156,7 +198,7 @@ export default function FunctionsAdminPage() {
         </div>
         <button
           type="button"
-          onClick={() => setFormOpen(true)}
+          onClick={openCreate}
           className="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -181,7 +223,7 @@ export default function FunctionsAdminPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800/60">
-              {['Pelicula', 'Fecha', 'Cine / sala', 'Precio', 'Estado'].map((column) => (
+              {['Pelicula', 'Fecha', 'Cine / sala', 'Estado', ''].map((column) => (
                 <th key={column} className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                   {column}
                 </th>
@@ -213,11 +255,17 @@ export default function FunctionsAdminPage() {
                     <p>{funcion.cine?.nombre ?? funcion.sala?.cines?.nombre ?? '-'}</p>
                     <p className="text-xs text-zinc-500">{funcion.sala?.nombre ?? '-'}</p>
                   </td>
-                  <td className="px-4 py-3 text-zinc-400">{funcion.precio ? `L ${funcion.precio}` : '-'}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass(funcion.estado)}`}>
                       {funcion.estado}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end">
+                      <button type="button" onClick={() => openEdit(funcion)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors" title="Editar funcion">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -230,7 +278,7 @@ export default function FunctionsAdminPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto scrollbar-hide">
             <div className="sticky top-0 z-10 bg-zinc-900 flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-800">
-              <h2 className="text-lg font-semibold text-white">Crear nueva funcion</h2>
+              <h2 className="text-lg font-semibold text-white">{editingFunction ? 'Editar funcion' : 'Crear nueva funcion'}</h2>
               <button type="button" onClick={() => setFormOpen(false)} className="text-zinc-400 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
@@ -242,7 +290,7 @@ export default function FunctionsAdminPage() {
                   Cancelar
                 </button>
                 <button type="submit" className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">
-                  Crear funcion
+                  {editingFunction ? 'Guardar cambios' : 'Crear funcion'}
                 </button>
               </div>
             </form>
