@@ -1,4 +1,5 @@
 import { Movie, Cine,  Funcion, User, Role, City, Sala, Genre, Language, Coupon, Payment, Refund, CancellationPolicy, Reservation } from '@/types';
+import { Pixelify_Sans } from 'next/font/google';
 
 export const PEXELS_POSTERS = [
   'https://images.pexels.com/photos/7234213/pexels-photo-7234213.jpeg?auto=compress&cs=tinysrgb&w=400&h=600&fit=crop',
@@ -16,9 +17,9 @@ export const PEXELS_POSTERS = [
 ];
 
 export const MOCK_ROLES: Role[] = [
-  { id: 1, name: 'ADMIN', description: 'Acceso total al sistema' },
-  { id: 2, name: 'SECRETARIO', description: 'Gestionar funciones y reservas' },
-  { id: 3, name: 'CLIENTE', description: 'Reservar boletos y gestionar reservas propias' },
+  { id: 1, name: 'ADMIN'},
+  { id: 2, name: 'SECRETARIO' },
+  { id: 3, name: 'CLIENTE' },
 ];
 
 // Agrega de manera segura la propiedad password para el entorno mock
@@ -101,6 +102,10 @@ export const MOCK_GENRES: Genre[] = [
   { id: 2, nombre: 'Ciencia Ficción' },
   { id: 3, nombre: 'Terror' },
   { id: 4, nombre: 'Romance' },
+  { id: 5, nombre: 'Comedia' },
+  { id: 6, nombre: 'Drama' },
+  { id: 7, nombre: 'Documental' },
+  { id: 8, nombre: 'Animación' },
 ];
 
 export const MOCK_LANGUAGES: Language[] = [
@@ -114,13 +119,16 @@ export const MOCK_MOVIES: Movie[] = [
   { id: 3, titulo: 'Ecos del Pasado', sinopsis: 'Una pareja se muda a una casa con un oscuro secreto.', poster_url: PEXELS_POSTERS[2], duracion: 115, fecha_estreno: '2026-03-10', id_genero: 3, genero: MOCK_GENRES[2], id_idioma: 2, idioma: MOCK_LANGUAGES[1], estado: 'Activa' },
   { id: 4, titulo: 'Amor en Tiempos de Crisis', sinopsis: 'Dos almas se encuentran durante un apocalipsis.', poster_url: PEXELS_POSTERS[3], duracion: 130, fecha_estreno: '2026-02-14', id_genero: 4, genero: MOCK_GENRES[3], id_idioma: 2, idioma: MOCK_LANGUAGES[1], estado: 'Activa' },
   { id: 5, titulo: 'Códigos de Guerra', sinopsis: 'Un hacker se infiltra en una red militar secreta.', poster_url: PEXELS_POSTERS[4], duracion: 138, fecha_estreno: '2026-01-30', id_genero: 1, genero: MOCK_GENRES[0], id_idioma: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
-  { id: 6, titulo: 'Camino Venenoso', sinopsis: '', poster_url: '', duracion: 118, fecha_estreno: '2025-12-05', genero_id: 1, genero: MOCK_GENRES[0], idioma_id: 2, idioma: MOCK_LANGUAGES[1], estado: 'Activa' },
-  { id: 7, titulo: 'Eclipse Rojo', sinopsis: '', poster_url: '', duracion: 122, fecha_estreno: '2025-11-18', genero_id: 2, genero: MOCK_GENRES[1], idioma_id: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
-  { id: 8, titulo: 'La Mansión del Fin', sinopsis: '', poster_url: '', duracion: 98, fecha_estreno: '2025-10-31', genero_id: 3, genero: MOCK_GENRES[2], idioma_id: 2, idioma: MOCK_LANGUAGES[1], estado: 'Inactiva' },
-  { id: 9, titulo: 'Furia Silenciosa', sinopsis: '', poster_url: '', duracion: 110, fecha_estreno: '2025-09-14', genero_id: 1, genero: MOCK_GENRES[0], idioma_id: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
-  { id: 10, titulo: 'Entre Sombras', sinopsis: '', poster_url: '', duracion: 95, fecha_estreno: '2025-08-20', genero_id: 4, genero: MOCK_GENRES[3], idioma_id: 2, idioma: MOCK_LANGUAGES[1], estado: 'Activa' },
-  { id: 11, titulo: 'Zona Cero', sinopsis: '', poster_url: '', duracion: 130, fecha_estreno: '2025-07-04', genero_id: 2, genero: MOCK_GENRES[1], idioma_id: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
-  { id: 12, titulo: 'El Último Tren', sinopsis: '', poster_url: '', duracion: 108, fecha_estreno: '2025-06-15', genero_id: 3, genero: MOCK_GENRES[2], idioma_id: 2, idioma: MOCK_LANGUAGES[1], estado: 'Inactiva' },
+  { id: 6, titulo: 'Camino Venenoso', sinopsis: 'Un viaje peligroso por un sendero tóxico.', poster_url: PEXELS_POSTERS[5], duracion: 118, fecha_estreno: '2025-12-05', id_genero: 1, genero: MOCK_GENRES[0], id_idioma: 2, idioma: MOCK_LANGUAGES[1], estado: 'Activa' },
+  { id: 7, titulo: 'Eclipse Rojo', sinopsis: 'Un fenómeno astronómico amenaza con destruir el mundo.', poster_url: PEXELS_POSTERS[6], duracion: 122, fecha_estreno: '2025-11-18', id_genero: 2, genero: MOCK_GENRES[1], id_idioma: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
+  { id: 8, titulo: 'La Mansión del Fin', sinopsis: 'Un lugar aislado alberga secretos oscuros.', poster_url: PEXELS_POSTERS[7], duracion: 98, fecha_estreno: '2025-10-31', id_genero: 3, genero: MOCK_GENRES[2], id_idioma: 2, idioma: MOCK_LANGUAGES[1], estado: 'Inactiva' },
+  { id: 9, titulo: 'Furia Silenciosa', sinopsis: 'Una mujer descubre un complot que pone en peligro su vida.', poster_url: PEXELS_POSTERS[8], duracion: 110, fecha_estreno: '2025-09-14', id_genero: 1, genero: MOCK_GENRES[0], id_idioma: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
+  { id: 10, titulo: 'Entre Sombras', sinopsis: 'Un detective investiga un caso que lo lleva al borde de la locura.', poster_url: PEXELS_POSTERS[9], duracion: 95, fecha_estreno: '2025-08-20', id_genero: 4, genero: MOCK_GENRES[3], id_idioma: 2, idioma: MOCK_LANGUAGES[1], estado: 'Activa' },
+  { id: 11, titulo: 'Zona Cero', sinopsis: 'Un grupo de supervivientes lucha por sobrevivir en un mundo devastado.', poster_url: PEXELS_POSTERS[10], duracion: 130, fecha_estreno: '2025-07-04', id_genero: 2, genero: MOCK_GENRES[1], id_idioma: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
+  { id: 12, titulo: 'El Último Tren', sinopsis: 'Un tren se dirige hacia el futuro con un destino desconocido.', poster_url: PEXELS_POSTERS[11], duracion: 108, fecha_estreno: '2025-06-15', id_genero: 3, genero: MOCK_GENRES[2], id_idioma: 2, idioma: MOCK_LANGUAGES[1], estado: 'Inactiva' },
+  { id: 13, titulo: 'Horizonte Perdido', sinopsis: 'Un piloto se estrella en una isla misteriosa.', poster_url: PEXELS_POSTERS[0], duracion: 125, fecha_estreno: '2025-05-10', id_genero: 1, genero: MOCK_GENRES[0], id_idioma: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
+  { id: 14, titulo: 'La Ciudad Escondida', sinopsis: 'Un periodista descubre una ciudad oculta bajo la metrópolis.', poster_url: PEXELS_POSTERS[1], duracion: 135, fecha_estreno: '2025-04-01', id_genero: 2, genero: MOCK_GENRES[1], id_idioma: 2, idioma: MOCK_LANGUAGES[1], estado: 'Activa' },
+  { id: 15, titulo: 'Noche de Pesadilla', sinopsis: 'Un grupo de amigos enfrenta sus peores miedos en una noche aterradora.', poster_url: PEXELS_POSTERS[2], duracion: 90, fecha_estreno: '2025-03-20', id_genero: 3, genero: MOCK_GENRES[2], id_idioma: 1, idioma: MOCK_LANGUAGES[0], estado: 'Activa' },
 ];
 
 export const MOCK_FUNCIONES: Funcion[] = [
@@ -157,6 +165,10 @@ export const MOCK_REFUNDS: Refund[] = [
 
 export const MOCK_COUPONS: Coupon[] = [
   { id: 1, codigo: 'SAVE20', tipo: 'PORCENTAJE', valor: 20, fecha_inicio: '2026-01-01', fecha_fin: '2026-12-31', usos_maximo: 100, usos_actuales: 25, activo: true },
+  { id: 2, codigo: 'BIENVENIDO', tipo: 'FIJO', valor: 50, fecha_inicio: '2026-01-01', fecha_fin: '2026-06-30', usos_maximo: 500, usos_actuales: 120, activo: true },
+  { id: 3, codigo: 'CINEVIP', tipo: 'PORCENTAJE', valor: 15, fecha_inicio: '2026-05-01', fecha_fin: '2026-05-31', usos_maximo: 50, usos_actuales: 50, activo: false },
+  { id: 4, codigo: 'LUNES2X1', tipo: 'PORCENTAJE', valor: 50, fecha_inicio: '2026-01-01', fecha_fin: '2026-12-31', usos_maximo: 1000, usos_actuales: 450, activo: true },
+  { id: 5, codigo: 'PROMO10', tipo: 'FIJO', valor: 10, fecha_inicio: '2026-01-01', fecha_fin: '2026-03-31', usos_maximo: 200, usos_actuales: 200, activo: false },
 ];
 
 export const MOCK_POLICIES: CancellationPolicy[] = [
