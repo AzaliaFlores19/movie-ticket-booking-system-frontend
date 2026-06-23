@@ -4,7 +4,7 @@ import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/components/layout/MainLayout';
-import { ArrowLeft, Loader2, Clock, Building2, Film, Ticket, Check, MapPin } from 'lucide-react';
+import { ArrowLeft, Loader2, Clock, Building2, Film, Ticket, Check, MapPin, User, ChevronDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getMockFuncionById, getMockSeatsForFuncion, MOCK_USERS, MOCK_FUNCIONES } from '@/lib/mock-data';
