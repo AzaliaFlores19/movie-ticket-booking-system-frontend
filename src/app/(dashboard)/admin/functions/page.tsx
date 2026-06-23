@@ -27,6 +27,13 @@ function statusClass(status: string) {
   if (normalized === 'AGOTADO') return 'bg-amber-500/15 text-amber-300 border-amber-500/20';
   return 'bg-zinc-700/60 text-zinc-300 border-zinc-600';
 }
+function formatFunctionDate(value?: string) {
+  return value ? value.split('T')[0] : '-';
+}
+
+function formatFunctionTime(value?: string) {
+  return value?.split('T')[1]?.slice(0, 5) || '-';
+}
 
 function toDateTimeLocal(value?: string) {
   if (!value) return '';
@@ -236,7 +243,6 @@ export default function FunctionsAdminPage() {
           </thead>
           <tbody className="divide-y divide-zinc-800/40">
             {filteredFunctions.map((funcion) => {
-              const date = new Date(funcion.fecha_hora);
               return (
                 <tr key={funcion.id} className="hover:bg-zinc-900/50 transition-colors">
                   <td className="px-4 py-3">
@@ -252,8 +258,8 @@ export default function FunctionsAdminPage() {
                   </td>
                   <td className="px-4 py-3 text-zinc-400">
                     <div className="flex flex-col gap-1">
-                      <span className="flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5 text-zinc-600" />{date.toLocaleDateString()}</span>
-                      <span className="flex items-center gap-1.5 text-xs"><Clock className="w-3.5 h-3.5 text-zinc-600" />{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5 text-zinc-600" />{formatFunctionDate(funcion.fecha_hora)}</span>
+                      <span className="flex items-center gap-1.5 text-xs"><Clock className="w-3.5 h-3.5 text-zinc-600" />{formatFunctionTime(funcion.fecha_hora)}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-zinc-400">
