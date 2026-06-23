@@ -1,5 +1,6 @@
 'use client';
 
+
 import type { AsientoFuncion } from '@/types';
 
 type SeatState = 'available' | 'reserved' | 'selected' | 'maintenance' | 'blocked';
