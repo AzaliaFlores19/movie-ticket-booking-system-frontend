@@ -8,6 +8,12 @@ import { SeatMap } from '@/components/seats/SeatMap';
 import { functionsService } from '@/services/functions.service';
 import type { AsientoFuncion, Funcion } from '@/types';
 
+function formatShowtime(value?: string | null) {
+  if (!value) return '-';
+  const [date, time = ''] = value.replace('Z', '').split('T');
+  return time ? `${date} ${time.slice(0, 5)}` : date;
+}
+
 export default function BookPage({ params }: { params: Promise<{ id: string; functionId: string }> }) {
   const { id, functionId } = use(params);
   const [funcion, setFuncion] = useState<Funcion | null>(null);
@@ -82,7 +88,7 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
           <div>
             <h1 className="text-xl font-bold text-white">{funcion?.pelicula?.titulo ?? 'Mapa de asientos'}</h1>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-400">
-              <span className="inline-flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5" />{funcion?.fecha_hora ? new Date(funcion.fecha_hora).toLocaleString() : '-'}</span>
+              <span className="inline-flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5" />{formatShowtime(funcion?.fecha_hora)}</span>
               <span className="inline-flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />{funcion?.cine?.nombre ?? 'Cine'} - {funcion?.sala?.nombre ?? 'Sala'}</span>
             </div>
           </div>
