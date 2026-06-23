@@ -52,7 +52,7 @@ export function SeatMap({ seats, selectedIds = new Set(), onToggleSeat, readOnly
         <div className="w-48 max-w-[70%] h-1 bg-gradient-to-r from-transparent via-red-400 to-transparent mx-auto mb-1 rounded" />
         <p className="text-[10px] font-semibold tracking-[0.28em] text-zinc-500">PANTALLA</p>
       </div>
-      <div className="p-4 overflow-x-auto scrollbar-hide">
+      <div className="p-4 overflow-x-auto scrollbar-hide flex justify-center">
         {sortedRows.length === 0 ? (
           <div className="py-10 text-center text-sm text-zinc-500">No hay asientos disponibles para mostrar</div>
         ) : (
@@ -60,7 +60,7 @@ export function SeatMap({ seats, selectedIds = new Set(), onToggleSeat, readOnly
             {sortedRows.map((row) => {
               const rowSeats = [...rows[row]].sort((a, b) => a.asiento.columna - b.asiento.columna);
               return (
-                <div key={row} className="flex items-center gap-1.5">
+                <div key={row} className="flex items-center justify-center gap-1.5">
                   <span className="w-5 shrink-0 text-right font-mono text-xs text-zinc-500">{row}</span>
                   <div className="flex items-center gap-1">
                     {rowSeats.map((seat) => {
@@ -80,6 +80,7 @@ export function SeatMap({ seats, selectedIds = new Set(), onToggleSeat, readOnly
                       );
                     })}
                   </div>
+                  <span className="w-5 shrink-0" aria-hidden />
                 </div>
               );
             })}
