@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CalendarClock, Clock, Film, Pencil, Plus, Search, X } from 'lucide-react';
+import { CalendarClock, Clock, Film, Pencil, Plus, Search, TicketX, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { SeatMap } from '@/components/seats/SeatMap';
 import { MOCK_CINEMAS, MOCK_FUNCIONES, MOCK_MOVIES, MOCK_ROOMS, getMockSeatsForFuncion } from '@/lib/mock-data';
@@ -32,6 +32,12 @@ function formatFunctionDate(value?: string) {
 
 function formatFunctionTime(value?: string) {
   return value?.split('T')[1]?.slice(0, 5) || '-';
+}
+
+function formatFunctionDateTime(value?: string) {
+  const date = formatFunctionDate(value);
+  const time = formatFunctionTime(value);
+  return date === '-' ? '-' : `${date} ${time}`;
 }
 
 function toDateTimeLocal(value?: string) {
@@ -134,6 +140,7 @@ export default function FunctionsAdminPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingFunction, setEditingFunction] = useState<Funcion | null>(null);
   const [form, setForm] = useState<FunctionForm>(EMPTY_FORM);
+  const [cancelTarget, setCancelTarget] = useState<Funcion | null>(null);
 
   const filteredFunctions = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -187,6 +194,18 @@ export default function FunctionsAdminPage() {
     setFormOpen(false);
     setEditingFunction(null);
     setForm(EMPTY_FORM);
+  }
+
+  function confirmCancel() {
+    if (!cancelTarget) return;
+    setFunctions((prev) => prev.map((item) => (item.id === cancelTarget.id ? { ...item, estado: 'CANCELADO' } : item)));
+    functionsService.cancel(cancelTarget.id).catch(() => undefined);
+    setCancelTarget(null);
+    toast.info('Funcion cancelada. Se notificara a clientes afectados.');
+  }
+
+  function affectedCount(funcion: Funcion) {
+    return getMockSeatsForFuncion(funcion.id).filter((seat) => ['OCUPADO', 'RESERVADO'].includes(seat.estado)).length;
   }
 
   return (
@@ -261,9 +280,12 @@ export default function FunctionsAdminPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-1">
                       <button type="button" onClick={() => openEdit(funcion)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors" title="Editar funcion">
                         <Pencil className="w-4 h-4" />
+                      </button>
+                      <button type="button" onClick={() => setCancelTarget(funcion)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-600/20 hover:text-red-300 transition-colors" title="Cancelar funcion">
+                        <TicketX className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -294,6 +316,40 @@ export default function FunctionsAdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {cancelTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl">
+            <div className="flex items-start gap-3 px-6 pt-5 pb-4 border-b border-zinc-800">
+              <div className="h-10 w-10 rounded-xl bg-red-600/20 border border-red-500/20 flex items-center justify-center">
+                <TicketX className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-white">Cancelar funcion</h2>
+                <p className="text-sm text-zinc-400 mt-1">Esta accion puede afectar clientes con reservaciones activas.</p>
+              </div>
+              <button type="button" onClick={() => setCancelTarget(null)} className="text-zinc-400 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
+                <p className="text-sm font-medium text-zinc-100">{cancelTarget.pelicula?.titulo}</p>
+                <p className="text-xs text-zinc-500 mt-1">{formatFunctionDateTime(cancelTarget.fecha_hora)}</p>
+                <p className="text-xs text-red-300 mt-3">{affectedCount(cancelTarget)} cliente/asiento posiblemente afectado.</p>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button type="button" onClick={() => setCancelTarget(null)} className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors">
+                  Volver
+                </button>
+                <button type="button" onClick={confirmCancel} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">
+                  Confirmar cancelacion
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

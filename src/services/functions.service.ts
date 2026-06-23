@@ -28,4 +28,9 @@ export const functionsService = {
     const { data } = await axios.put<Funcion>(`/funciones/${id}`, payload);
     return unwrapData<Funcion>(data);
   },
+
+  async cancel(id: number): Promise<Funcion> {
+    const { data } = await axios.patch<Funcion>(`/funciones/${id}/cancelar`);
+    return unwrapData<Funcion>(data);
+  },
 };
