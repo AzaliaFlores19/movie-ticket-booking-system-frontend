@@ -169,7 +169,7 @@ export default function FunctionsAdminPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800/60">
-              {['Pelicula', 'Fecha', 'Cine / sala', 'Precio', 'Estado'].map((column) => (
+              {['Pelicula', 'Fecha', 'Cine / sala', 'Estado'].map((column) => (
                 <th key={column} className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                   {column}
                 </th>
@@ -201,7 +201,6 @@ export default function FunctionsAdminPage() {
                     <p>{funcion.cine?.nombre ?? funcion.sala?.cines?.nombre ?? '-'}</p>
                     <p className="text-xs text-zinc-500">{funcion.sala?.nombre ?? '-'}</p>
                   </td>
-                  <td className="px-4 py-3 text-zinc-400">{funcion.precio ? `L ${funcion.precio}` : '-'}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass(funcion.estado)}`}>
                       {funcion.estado}
