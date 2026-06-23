@@ -9,6 +9,10 @@ import type { City } from '@/types';
 
 const inputCls = 'w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/60';
 
+function formatCreatedAt(value?: string) {
+  return value ? value.split('T')[0] : '-';
+}
+
 export default function CitiesAdminPage() {
   const [cities, setCities] = useState<City[]>(MOCK_CITIES);
   const [search, setSearch] = useState('');
@@ -130,7 +134,7 @@ export default function CitiesAdminPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-zinc-400 font-mono">#{city.id}</td>
-                  <td className="px-4 py-3 text-zinc-400">{city.createdAt ? new Date(city.createdAt).toLocaleDateString() : '-'}</td>
+                  <td className="px-4 py-3 text-zinc-400">{formatCreatedAt(city.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
                       <button
