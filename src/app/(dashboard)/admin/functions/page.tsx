@@ -13,7 +13,6 @@ const EMPTY_FORM = {
   pelicula_id: '',
   sala_id: '',
   fecha_hora: '',
-  precio: '',
   estado: 'DISPONIBLE',
 };
 
@@ -47,7 +46,6 @@ function buildFunctionFromForm(form: FunctionForm): Funcion {
     sala: room,
     cine: cinema,
     fecha_hora: new Date(form.fecha_hora).toISOString(),
-    precio: form.precio ? Number(form.precio) : undefined,
     estado: form.estado,
   };
 }
@@ -81,17 +79,11 @@ function FunctionFormFields({ form, onChange }: { form: FunctionForm; onChange: 
         </select>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-zinc-300 mb-1">
-            Fecha y hora <span className="text-red-500">*</span>
-          </label>
-          <input required type="datetime-local" value={form.fecha_hora} onChange={(event) => onChange({ ...form, fecha_hora: event.target.value })} className={inputCls} />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-zinc-300 mb-1">Precio</label>
-          <input type="number" min="0" step="0.01" value={form.precio} onChange={(event) => onChange({ ...form, precio: event.target.value })} className={inputCls} placeholder="150" />
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-zinc-300 mb-1">
+          Fecha y hora <span className="text-red-500">*</span>
+        </label>
+        <input required type="datetime-local" value={form.fecha_hora} onChange={(event) => onChange({ ...form, fecha_hora: event.target.value })} className={inputCls} />
       </div>
 
       <div>
@@ -135,7 +127,6 @@ export default function FunctionsAdminPage() {
       pelicula_id: payload.pelicula_id,
       sala_id: payload.sala_id,
       fecha_hora: payload.fecha_hora,
-      precio: payload.precio,
       estado: payload.estado,
     }).catch(() => undefined);
     toast.success('Funcion creada correctamente');
