@@ -11,8 +11,8 @@ import {
 } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { reservationsService } from '@/services/reservations.service';
-import { MOCK_POLICIES } from '@/lib/mock-data';
-import { Reservation } from '@/types';
+import { refundsService } from '@/services/refunds.service';
+import { Reservation, Refund } from '@/types';
 
 type TabKey = 'proximas' | 'pasadas' | 'todas';
 
@@ -28,10 +28,22 @@ const STATUS_STYLES: Record<string, string> = {
   PAGADA: 'bg-green-600/20 text-green-400 border-green-500/30',
   USADA: 'bg-zinc-600/20 text-zinc-400 border-zinc-500/30',
   CANCELADA: 'bg-red-600/20 text-red-400 border-red-500/30',
+  REEMBOLSADA: 'bg-teal-600/20 text-teal-400 border-teal-500/30',
 };
 
 function statusStyle(estado: string) {
   return STATUS_STYLES[estado] ?? 'bg-zinc-600/20 text-zinc-400 border-zinc-500/30';
+}
+
+// Estilos de badge por estado del reembolso.
+const REFUND_STATUS_STYLES: Record<string, string> = {
+  PENDIENTE: 'bg-amber-600/20 text-amber-400 border-amber-500/30',
+  PROCESADO: 'bg-green-600/20 text-green-400 border-green-500/30',
+  RECHAZADO: 'bg-red-600/20 text-red-400 border-red-500/30',
+};
+
+function refundStatusStyle(estado: string) {
+  return REFUND_STATUS_STYLES[estado] ?? 'bg-zinc-600/20 text-zinc-400 border-zinc-500/30';
 }
 
 function seatLabels(r: Reservation) {
@@ -47,6 +59,7 @@ function formatDate(dateStr: string) {
 
 export default function MyBookingsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [refunds, setRefunds] = useState<Refund[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>('proximas');
   const [cancelId, setCancelId] = useState<number | null>(null);
@@ -62,8 +75,21 @@ export default function MyBookingsPage() {
       .then((data) => { if (active) setReservations(data); })
       .catch(() => { if (active) setReservations([]); })
       .finally(() => { if (active) setLoading(false); });
+    refundsService
+      .getMine()
+      .then((data) => { if (active) setRefunds(data); })
+      .catch(() => { if (active) setRefunds([]); });
     return () => { active = false; };
   }, []);
+
+  // Reembolso por id de pago, para mostrar su estado en cada reserva.
+  const refundByPaymentId = useMemo(() => {
+    const map = new Map<number, Refund>();
+    for (const rf of refunds) {
+      if (rf.pago_id != null) map.set(rf.pago_id, rf);
+    }
+    return map;
+  }, [refunds]);
 
   const now = Date.now();
 
@@ -179,6 +205,10 @@ export default function MyBookingsPage() {
               const seats = seatLabels(r);
               const upcoming = new Date(fn?.fecha_hora ?? 0).getTime() >= now;
               const canRefund = upcoming && r.estado !== 'CANCELADA';
+              const refund = r.payment?.id != null ? refundByPaymentId.get(r.payment.id) : undefined;
+              const refundProcessed = refund?.estado === 'PROCESADO';
+              // Si el reembolso ya se procesó, la reserva se muestra como REEMBOLSADA.
+              const displayStatus = refundProcessed ? 'REEMBOLSADA' : r.estado;
 
               return (
                 <div
@@ -207,8 +237,8 @@ export default function MyBookingsPage() {
                       <h3 className="font-semibold text-zinc-100 truncate">
                         {fn?.pelicula?.titulo ?? 'Función'}
                       </h3>
-                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${statusStyle(r.estado)}`}>
-                        {r.estado}
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${statusStyle(displayStatus)}`}>
+                        {displayStatus}
                       </span>
                     </div>
 
@@ -238,6 +268,18 @@ export default function MyBookingsPage() {
                         <Hash className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                         {r.codigo ?? `#${r.id}`}
                       </p>
+                      {refund && (
+                        <p className="flex items-center gap-1.5">
+                          <RotateCcw className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                          Reembolso
+                          {!refundProcessed && (
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${refundStatusStyle(refund.estado)}`}>
+                              {refund.estado}
+                            </span>
+                          )}
+                          <span className="text-zinc-500">· ${(refund.monto ?? 0).toLocaleString('es-MX')}</span>
+                        </p>
+                      )}
                     </div>
 
                     <div className="mt-3 pt-3 border-t border-zinc-800/60 flex items-center justify-between gap-2">
@@ -246,13 +288,6 @@ export default function MyBookingsPage() {
                       </span>
                       {canRefund ? (
                         <div className="flex items-center gap-2">
-                          <Link
-                            href={`/my-bookings/refunds?reserva=${r.id}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition-colors"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Reembolso
-                          </Link>
                           <button
                             onClick={() => openCancelModal(r.id)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600/10 text-red-400 border border-red-500/30 hover:bg-red-600/20 transition-colors"
