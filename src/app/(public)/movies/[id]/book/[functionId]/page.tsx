@@ -4,7 +4,7 @@ import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/components/layout/MainLayout';
-import { ArrowLeft, Loader2, Clock, Building2, Film, Ticket, Check, MapPin, User, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Loader2, Clock, Building2, Film, Ticket, Check, MapPin, User, ChevronDown, AlertCircle, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getMockFuncionById, getMockSeatsForFuncion, MOCK_USERS, MOCK_FUNCIONES } from '@/lib/mock-data';
@@ -31,6 +31,8 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
   const [seats, setSeats] = useState<Seat[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  // Asiento no disponible (ocupado o en mantenimiento) que el usuario intentó seleccionar: dispara el modal de error.
+  const [blockedSeat, setBlockedSeat] = useState<Seat | null>(null);
 
   // Rol del usuario en sesión: ADMIN/SECRETARIO usan el flujo de staff (reservan para un cliente).
   const [isStaff, setIsStaff] = useState(false);
@@ -64,6 +66,11 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
   };
 
   const toggleSeat = (seat: Seat) => {
+    // Si el asiento no está disponible (ocupado o en mantenimiento), avisamos con un modal en vez de ignorar el clic.
+    if (seat.estado === 'OCUPADO' || seat.estado === 'MANTENIMIENTO') {
+      setBlockedSeat(seat);
+      return;
+    }
     if (seat.estado !== 'DISPONIBLE') return;
     setSelected((prev) =>
       prev.includes(seat.id) ? prev.filter((s) => s !== seat.id) : [...prev, seat.id]
@@ -253,7 +260,6 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
                             key={seat.id}
                             type="button"
                             onClick={() => toggleSeat(seat)}
-                            disabled={estado !== 'DISPONIBLE'}
                             title={`${fila}${seat.asiento.columna} — ${estado}`}
                             className={`${SEAT_BASE} ${cls}`}
                           >
@@ -352,6 +358,54 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
           </div>
         </div>
       </div>
+
+      {/* Modal — Asiento no disponible (ocupado o en mantenimiento) */}
+      {blockedSeat && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setBlockedSeat(null)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="relative bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+          >
+            <button
+              type="button"
+              onClick={() => setBlockedSeat(null)}
+              className="absolute top-3 right-3 text-zinc-500 hover:text-zinc-200 transition-colors"
+              aria-label="Cerrar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Asiento no disponible</h3>
+                <p className="text-sm text-zinc-400 mt-1">
+                  El asiento{' '}
+                  <span className="font-semibold text-zinc-200">
+                    {blockedSeat.asiento.fila}{blockedSeat.asiento.columna}
+                  </span>{' '}
+                  {blockedSeat.estado === 'MANTENIMIENTO'
+                    ? 'está en mantenimiento y no puede reservarse. Por favor elige otro asiento disponible.'
+                    : 'ya está ocupado. Por favor elige otro asiento disponible.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBlockedSeat(null)}
+                className="w-full py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors"
+              >
+                ENTENDIDO
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 }
