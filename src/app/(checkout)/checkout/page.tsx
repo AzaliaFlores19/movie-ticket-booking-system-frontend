@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarClock, CreditCard, MapPin, Ticket, Film, Armchair } from 'lucide-react';
+import { CalendarClock, CreditCard, MapPin, Ticket, Film, Armchair, ArrowLeft } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { functionsService } from '@/services/functions.service';
 import type { Funcion } from '@/types';
@@ -23,10 +23,12 @@ function CheckoutContent() {
 
   useEffect(() => {
     if (!funcionId) { setLoading(false); return; }
-    functionsService.getOne(funcionId).then((f) => {
-      setFuncion(f);
-      setLoading(false);
-    });
+    let active = true;
+    functionsService
+      .getOne(funcionId)
+      .then((f) => { if (active) setFuncion(f); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [funcionId]);
 
   const movie     = funcion?.pelicula?.titulo   ?? '—';
@@ -42,6 +44,15 @@ function CheckoutContent() {
 
   function goToPayment() {
     router.push(`/payment?${params.toString()}`);
+  }
+
+  function backToSeatMap() {
+    const peliculaId = funcion?.pelicula?.id ?? funcion?.pelicula_id;
+    if (peliculaId && funcionId) {
+      router.push(`/movies/${peliculaId}/book/${funcionId}`);
+    } else {
+      router.back();
+    }
   }
 
   if (loading) {
