@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CalendarClock, CreditCard, MapPin, Ticket } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
@@ -14,12 +14,17 @@ function formatShowtime(value?: string | null) {
 
 function CheckoutContent() {
   const params = useSearchParams();
+  const router = useRouter();
   const seats = params.get('seats')?.split(',').filter(Boolean) ?? [];
   const movie = params.get('movie') || 'Pelicula';
   const cine = params.get('cine') || 'Cine';
   const sala = params.get('sala') || 'Sala';
   const showtime = params.get('showtime');
   const total = params.get('total') || '0';
+
+  function goToPayment() {
+    router.push(`/payment?${params.toString()}`);
+  }
 
   return (
     <MainLayout>
@@ -72,7 +77,10 @@ function CheckoutContent() {
                 <span>L {total}</span>
               </div>
             </div>
-            <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-3 transition-colors">
+            <button
+              onClick={goToPayment}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-3 transition-colors"
+            >
               <CreditCard className="h-4 w-4" />
               Continuar pago
             </button>
