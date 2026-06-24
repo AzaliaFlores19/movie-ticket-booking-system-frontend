@@ -132,11 +132,15 @@ function CheckoutContent() {
               className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-3 transition-colors"
             >
               <CreditCard className="h-4 w-4" />
-              Continuar pago
+              Confirmar y continuar al pago
             </button>
-            <Link href="/" className="mt-3 block text-center text-xs text-zinc-500 hover:text-red-300 transition-colors">
-              Seguir explorando
-            </Link>
+            <button
+              onClick={backToSeatMap}
+              className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-sm font-semibold py-3 transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Cancelar y volver al mapa
+            </button>
           </aside>
         </div>
       </div>
