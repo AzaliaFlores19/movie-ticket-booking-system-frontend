@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarClock, CreditCard, MapPin, Ticket, Film, Armchair } from 'lucide-react';
+import { CalendarClock, CreditCard, MapPin, Ticket, Film, Armchair, ArrowLeft } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { functionsService } from '@/services/functions.service';
 import type { Funcion } from '@/types';
@@ -23,10 +23,12 @@ function CheckoutContent() {
 
   useEffect(() => {
     if (!funcionId) { setLoading(false); return; }
-    functionsService.getOne(funcionId).then((f) => {
-      setFuncion(f);
-      setLoading(false);
-    });
+    let active = true;
+    functionsService
+      .getOne(funcionId)
+      .then((f) => { if (active) setFuncion(f); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [funcionId]);
 
   const movie     = funcion?.pelicula?.titulo   ?? '—';
@@ -42,6 +44,15 @@ function CheckoutContent() {
 
   function goToPayment() {
     router.push(`/payment?${params.toString()}`);
+  }
+
+  function backToSeatMap() {
+    const peliculaId = funcion?.pelicula?.id ?? funcion?.pelicula_id;
+    if (peliculaId && funcionId) {
+      router.push(`/movies/${peliculaId}/book/${funcionId}`);
+    } else {
+      router.back();
+    }
   }
 
   if (loading) {
@@ -132,11 +143,15 @@ function CheckoutContent() {
               className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-3 transition-colors"
             >
               <CreditCard className="h-4 w-4" />
-              Continuar pago
+              Confirmar y continuar al pago
             </button>
-            <Link href="/" className="mt-3 block text-center text-xs text-zinc-500 hover:text-red-300 transition-colors">
-              Seguir explorando
-            </Link>
+            <button
+              onClick={backToSeatMap}
+              className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-sm font-semibold py-3 transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Cancelar y volver al mapa
+            </button>
           </aside>
         </div>
       </div>
