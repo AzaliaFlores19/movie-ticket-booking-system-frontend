@@ -13,6 +13,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import { reservationsService } from '@/services/reservations.service';
 import { refundsService } from '@/services/refunds.service';
 import { Reservation, Refund } from '@/types';
+import { MOCK_POLICIES } from '@/lib/mock-data';
 
 type TabKey = 'proximas' | 'pasadas' | 'todas';
 
