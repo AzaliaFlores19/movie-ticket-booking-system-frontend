@@ -220,13 +220,6 @@ export default function MyBookingsPage() {
                       </span>
                       {canRefund ? (
                         <div className="flex items-center gap-2">
-                          <Link
-                            href={`/my-bookings/refunds?reserva=${r.id}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition-colors"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Reembolso
-                          </Link>
                           <button
                             onClick={() => setCancelId(r.id)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600/10 text-red-400 border border-red-500/30 hover:bg-red-600/20 transition-colors"
