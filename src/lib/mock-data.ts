@@ -224,6 +224,8 @@ export const MOCK_PAYMENTS: Payment[] = [
 
 export const MOCK_REFUNDS: Refund[] = [
   { id: 1, monto: 200, estado: 'PROCESADO', motivo: 'Función cancelada', pago_id: 3, createdAt: '2026-06-09' },
+  { id: 2, monto: 180, estado: 'PROCESADO', motivo: 'Cancelación de reserva', pago_id: 5, createdAt: '2026-05-16' },
+  { id: 3, monto: 450, estado: 'PENDIENTE', motivo: 'Solicitud del cliente', pago_id: 1, createdAt: '2026-06-18' },
 ];
 
 export const MOCK_COUPONS: Coupon[] = [
