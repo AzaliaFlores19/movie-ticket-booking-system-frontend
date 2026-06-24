@@ -236,16 +236,16 @@ export const MOCK_COUPONS: Coupon[] = [
 
 export const MOCK_POLICIES: CancellationPolicy[] = [
   { id: 1,  nombre: 'Reembolso Completo',          descripcion: 'Cancela hasta 24 horas antes de la función',           horas_limite: 24,  porcentaje_reembolso: 100, activo: true,  createdAt: '2026-01-10' },
-  { id: 2,  nombre: 'Reembolso Parcial 50%',        descripcion: 'Aplica a cancelaciones con al menos 12 horas de aviso', horas_limite: 12,  porcentaje_reembolso: 50,  activo: true,  createdAt: '2026-01-15' },
+  { id: 2,  nombre: 'Reembolso Parcial 50%',        descripcion: 'Aplica a cancelaciones con al menos 12 horas de aviso', horas_limite: 12,  porcentaje_reembolso: 50,  activo: false, createdAt: '2026-01-15' },
   { id: 3,  nombre: 'Sin Reembolso',                descripcion: 'Promociones y boletos en oferta',                       horas_limite: 0,   porcentaje_reembolso: 0,   activo: false, createdAt: '2026-02-01' },
-  { id: 4,  nombre: 'Estrenos y Preestrenos',       descripcion: 'Política estricta para funciones especiales',           horas_limite: 72,  porcentaje_reembolso: 100, activo: true,  createdAt: '2026-02-10' },
-  { id: 5,  nombre: 'Madrugada',                    descripcion: 'Funciones de madrugada y horario nocturno',             horas_limite: 6,   porcentaje_reembolso: 25,  activo: true,  createdAt: '2026-02-20' },
-  { id: 6,  nombre: 'Temporada Alta',               descripcion: 'Vacaciones y días festivos',                            horas_limite: 48,  porcentaje_reembolso: 75,  activo: true,  createdAt: '2026-03-01' },
-  { id: 7,  nombre: 'Función Familiar',             descripcion: 'Matinés y funciones infantiles',                        horas_limite: 3,   porcentaje_reembolso: 100, activo: true,  createdAt: '2026-03-05' },
+  { id: 4,  nombre: 'Estrenos y Preestrenos',       descripcion: 'Política estricta para funciones especiales',           horas_limite: 72,  porcentaje_reembolso: 100, activo: false, createdAt: '2026-02-10' },
+  { id: 5,  nombre: 'Madrugada',                    descripcion: 'Funciones de madrugada y horario nocturno',             horas_limite: 6,   porcentaje_reembolso: 25,  activo: false, createdAt: '2026-02-20' },
+  { id: 6,  nombre: 'Temporada Alta',               descripcion: 'Vacaciones y días festivos',                            horas_limite: 48,  porcentaje_reembolso: 75,  activo: false, createdAt: '2026-03-01' },
+  { id: 7,  nombre: 'Función Familiar',             descripcion: 'Matinés y funciones infantiles',                        horas_limite: 3,   porcentaje_reembolso: 100, activo: false, createdAt: '2026-03-05' },
   { id: 8,  nombre: 'IMAX Premium',                 descripcion: 'Salas IMAX y experiencias premium',                    horas_limite: 96,  porcentaje_reembolso: 80,  activo: false, createdAt: '2026-03-10' },
-  { id: 9,  nombre: 'Evento Deportivo',             descripcion: 'Transmisiones en vivo de deportes',                    horas_limite: 48,  porcentaje_reembolso: 0,   activo: true,  createdAt: '2026-03-15' },
-  { id: 10, nombre: 'Función Privada',              descripcion: 'Alquiler exclusivo de sala',                            horas_limite: 168, porcentaje_reembolso: 50,  activo: true,  createdAt: '2026-03-20' },
-  { id: 11, nombre: 'Boleto Flexible',              descripcion: 'Permite cambios hasta 1 hora antes',                   horas_limite: 1,   porcentaje_reembolso: 100, activo: true,  createdAt: '2026-04-01' },
+  { id: 9,  nombre: 'Evento Deportivo',             descripcion: 'Transmisiones en vivo de deportes',                    horas_limite: 48,  porcentaje_reembolso: 0,   activo: false, createdAt: '2026-03-15' },
+  { id: 10, nombre: 'Función Privada',              descripcion: 'Alquiler exclusivo de sala',                            horas_limite: 168, porcentaje_reembolso: 50,  activo: false, createdAt: '2026-03-20' },
+  { id: 11, nombre: 'Boleto Flexible',              descripcion: 'Permite cambios hasta 1 hora antes',                   horas_limite: 1,   porcentaje_reembolso: 100, activo: false, createdAt: '2026-04-01' },
   { id: 12, nombre: 'Suscripción Mensual',          descripcion: 'Clientes con plan de membresía activa',                horas_limite: 2,   porcentaje_reembolso: 100, activo: false, createdAt: '2026-04-10' },
 ];
 

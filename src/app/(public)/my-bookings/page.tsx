@@ -7,10 +7,11 @@ import { es } from 'date-fns/locale';
 import { toast } from 'react-toastify';
 import {
   Ticket, Film, Clock, Building2, MapPin, Armchair, Hash,
-  CalendarClock, RotateCcw, ChevronRight, Ban, AlertCircle,
+  CalendarClock, RotateCcw, ChevronRight, Ban, AlertCircle, ShieldCheck, CheckCircle2,
 } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { reservationsService } from '@/services/reservations.service';
+import { MOCK_POLICIES } from '@/lib/mock-data';
 import { Reservation } from '@/types';
 
 type TabKey = 'proximas' | 'pasadas' | 'todas';
@@ -49,7 +50,10 @@ export default function MyBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>('proximas');
   const [cancelId, setCancelId] = useState<number | null>(null);
+  const [cancelStep, setCancelStep] = useState<1 | 2>(1);
   const [cancelling, setCancelling] = useState(false);
+
+  const activePolicy = MOCK_POLICIES.find((p) => p.activo) ?? null;
 
   useEffect(() => {
     let active = true;
@@ -65,6 +69,24 @@ export default function MyBookingsPage() {
 
   const cancelTarget = reservations.find((r) => r.id === cancelId) ?? null;
 
+  const horasRestantes = cancelTarget?.funcion?.fecha_hora
+    ? (new Date(cancelTarget.funcion.fecha_hora).getTime() - Date.now()) / (1000 * 60 * 60)
+    : 0;
+  const eligibleForRefund = activePolicy ? horasRestantes >= activePolicy.horas_limite : false;
+  const refundAmount = cancelTarget && activePolicy && eligibleForRefund
+    ? Math.round((cancelTarget.total * activePolicy.porcentaje_reembolso) / 100)
+    : 0;
+
+  function openCancelModal(id: number) {
+    setCancelId(id);
+    setCancelStep(1);
+  }
+
+  function closeCancel() {
+    setCancelId(null);
+    setCancelStep(1);
+  }
+
   const handleCancel = async () => {
     if (cancelId == null) return;
     setCancelling(true);
@@ -73,8 +95,12 @@ export default function MyBookingsPage() {
       setReservations((prev) =>
         prev.map((r) => (r.id === cancelId ? { ...r, estado: 'CANCELADA' } : r))
       );
-      toast.success('Reserva cancelada correctamente');
-      setCancelId(null);
+      toast.success(
+        refundAmount > 0
+          ? `Reserva cancelada. Se reembolsarán $${refundAmount.toLocaleString('es-MX')}.`
+          : 'Reserva cancelada. No aplica reembolso.'
+      );
+      closeCancel();
     } catch {
       toast.error('No se pudo cancelar la reserva');
     } finally {
@@ -228,7 +254,7 @@ export default function MyBookingsPage() {
                             Reembolso
                           </Link>
                           <button
-                            onClick={() => setCancelId(r.id)}
+                            onClick={() => openCancelModal(r.id)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600/10 text-red-400 border border-red-500/30 hover:bg-red-600/20 transition-colors"
                           >
                             <Ban className="w-3.5 h-3.5" />
@@ -250,24 +276,106 @@ export default function MyBookingsPage() {
         )}
       </div>
 
-      {/* Modal — Confirmar cancelación */}
-      {cancelTarget && (
+      {/* Modal Paso 1 — Política de cancelación */}
+      {cancelTarget && cancelStep === 1 && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex flex-col items-center text-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
-                <AlertCircle className="w-6 h-6" />
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Política de cancelación</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">Antes de confirmar, revisa las condiciones</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">¿Cancelar reserva?</h3>
-                <p className="text-sm text-zinc-400 mt-1">
-                  Se cancelará tu reserva <span className="font-semibold text-zinc-200">{cancelTarget.codigo ?? `#${cancelTarget.id}`}</span> para{' '}
-                  <span className="font-semibold text-zinc-200">{cancelTarget.funcion?.pelicula?.titulo ?? 'la función'}</span>. Esta acción no se puede deshacer.
-                </p>
-              </div>
-              <div className="flex w-full gap-3 mt-2">
+
+              {activePolicy ? (
+                <div className="bg-zinc-800/50 border border-zinc-700/60 rounded-xl p-4 space-y-3">
+                  <p className="text-sm font-semibold text-zinc-100">{activePolicy.nombre}</p>
+                  {activePolicy.descripcion && (
+                    <p className="text-xs text-zinc-400">{activePolicy.descripcion}</p>
+                  )}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <span className="inline-flex items-center gap-1.5 text-xs bg-zinc-900 border border-zinc-700 rounded-full px-3 py-1">
+                      <span className="text-zinc-400">Hasta</span>
+                      <span className="font-bold text-zinc-100">{activePolicy.horas_limite}h</span>
+                      <span className="text-zinc-500">antes de la función</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 text-xs bg-zinc-900 border border-zinc-700 rounded-full px-3 py-1">
+                      <span className="text-zinc-400">Reembolso:</span>
+                      <span className={`font-bold ${activePolicy.porcentaje_reembolso === 100 ? 'text-green-400' : activePolicy.porcentaje_reembolso === 0 ? 'text-zinc-500' : 'text-amber-400'}`}>
+                        {activePolicy.porcentaje_reembolso}%
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-zinc-800/50 border border-zinc-700/60 rounded-xl p-4">
+                  <p className="text-xs text-zinc-400">No hay una política de cancelación activa. No se garantiza reembolso.</p>
+                </div>
+              )}
+
+              <p className="text-xs text-zinc-500">
+                Reserva <span className="text-zinc-300 font-medium">{cancelTarget.codigo ?? `#${cancelTarget.id}`}</span> ·{' '}
+                <span className="text-zinc-300 font-medium">{cancelTarget.funcion?.pelicula?.titulo ?? 'la función'}</span>
+              </p>
+
+              <div className="flex gap-3 pt-1">
                 <button
-                  onClick={() => setCancelId(null)}
+                  onClick={closeCancel}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
+                  VOLVER
+                </button>
+                <button
+                  onClick={() => setCancelStep(2)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors"
+                >
+                  CONTINUAR
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Paso 2 — Confirmar con monto de reembolso */}
+      {cancelTarget && cancelStep === 2 && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400 shrink-0">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Confirmar cancelación</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">Esta acción no se puede deshacer</p>
+                </div>
+              </div>
+
+              <div className="bg-zinc-800/50 border border-zinc-700/60 rounded-xl p-4 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">Total pagado</span>
+                  <span className="text-zinc-100 font-medium">${(cancelTarget.total ?? 0).toLocaleString('es-MX')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">% de reembolso</span>
+                  <span className="text-zinc-300">{eligibleForRefund && activePolicy ? activePolicy.porcentaje_reembolso : 0}%</span>
+                </div>
+                <div className="border-t border-zinc-700/60 pt-3 flex justify-between">
+                  <span className="text-sm font-semibold text-zinc-200">Monto a reembolsar</span>
+                  <span className={`text-base font-bold ${refundAmount > 0 ? 'text-green-400' : 'text-zinc-500'}`}>
+                    {refundAmount > 0 ? `$${refundAmount.toLocaleString('es-MX')}` : 'Sin reembolso'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setCancelStep(1)}
                   disabled={cancelling}
                   className="flex-1 py-2 rounded-xl text-xs font-bold text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors disabled:opacity-50"
                 >
