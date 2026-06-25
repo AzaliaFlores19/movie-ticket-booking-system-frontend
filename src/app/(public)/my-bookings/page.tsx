@@ -7,7 +7,7 @@ import { es } from 'date-fns/locale';
 import { toast } from 'react-toastify';
 import {
   Ticket, Film, Clock, Building2, MapPin, Armchair, Hash,
-  CalendarClock, RotateCcw, ChevronRight, Ban, AlertCircle, ShieldCheck, CheckCircle2,
+  CalendarClock, RotateCcw, ChevronRight, Ban, AlertCircle, ShieldCheck
 } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { reservationsService } from '@/services/reservations.service';

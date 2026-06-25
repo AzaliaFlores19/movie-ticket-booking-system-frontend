@@ -4,6 +4,7 @@ import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/components/layout/MainLayout';
+import { BookingTimer } from '@/components/booking/BookingTimer';
 import { ArrowLeft, Loader2, Clock, Building2, Film, Ticket, Check, MapPin, User, ChevronDown, AlertCircle, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -139,6 +140,8 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
 
   return (
     <MainLayout>
+      <BookingTimer autoStart={selected.length > 0} redirectOnExpiry={`/movies/${id}`} />
+      {!isStaff}
       <div className="min-h-screen bg-[#0a0a0a] text-zinc-100 py-8">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 

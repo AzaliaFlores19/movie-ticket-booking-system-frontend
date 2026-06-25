@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { authService } from '@/services/auth.service';
 import {
-  LayoutDashboard, Users, Building2, Film, CalendarClock, Ticket,
-  CreditCard, RotateCcw, Tag, FileText, MapPin, Monitor, Globe, Shield,
+  Users, Building2, Film, CalendarClock, Ticket,
+  CreditCard, Tag, FileText, MapPin, Monitor, Globe, Shield,
   Menu, ChevronLeft, LogOut, ChevronRight, BarChart3,
 } from 'lucide-react';
 
@@ -15,7 +15,6 @@ interface DashboardLayoutProps {
 }
 
 const NAV_ITEMS = [
-  { label: 'Panel Principal', href: '/admin', icon: LayoutDashboard },
   { label: 'Películas', href: '/admin/movies', icon: Film },
   { label: 'Funciones', href: '/admin/functions', icon: CalendarClock },
   { label: 'Cines', href: '/admin/cinemas', icon: Building2 },
