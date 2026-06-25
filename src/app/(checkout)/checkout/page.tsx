@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarClock, CreditCard, MapPin, Ticket, Film, Armchair, ArrowLeft } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
+import { BookingTimer } from '@/components/booking/BookingTimer';
 import { functionsService } from '@/services/functions.service';
 import type { Funcion } from '@/types';
 
@@ -65,6 +66,7 @@ function CheckoutContent() {
 
   return (
     <MainLayout>
+      <BookingTimer />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white">Resumen de compra</h1>

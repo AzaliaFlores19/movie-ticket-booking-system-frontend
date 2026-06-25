@@ -18,6 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import MainLayout from "@/components/layout/MainLayout";
+import { clearBookingTimer } from "@/components/booking/BookingTimer";
 
 interface PaymentResult {
   status: "success" | "error";
@@ -67,6 +68,7 @@ export default function PaymentResultPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    clearBookingTimer();
     const raw = sessionStorage.getItem("payment_result");
     if (!raw) {
       router.replace("/");

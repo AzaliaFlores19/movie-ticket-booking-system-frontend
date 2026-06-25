@@ -13,6 +13,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import MainLayout from "@/components/layout/MainLayout";
+import { BookingTimer } from "@/components/booking/BookingTimer";
 import { toast } from "react-toastify";
 
 type PaymentMethod = "TARJETA" | "EFECTIVO";
@@ -166,6 +167,7 @@ function PaymentContent() {
 
   return (
     <MainLayout>
+      <BookingTimer />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
           <button
