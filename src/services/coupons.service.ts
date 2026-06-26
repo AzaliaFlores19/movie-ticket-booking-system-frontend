@@ -1,4 +1,4 @@
-import axiosInstance from './axios';
+import axiosInstance from '@/lib/axios';
 import { Coupon, CouponFilters, PaginatedResponse } from '@/types';
 
 export const couponsApi = {
