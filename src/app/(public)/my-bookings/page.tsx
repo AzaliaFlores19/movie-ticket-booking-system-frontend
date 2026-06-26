@@ -12,8 +12,8 @@ import {
 import MainLayout from '@/components/layout/MainLayout';
 import { reservationsService } from '@/services/reservations.service';
 import { refundsService } from '@/services/refunds.service';
-import { Reservation, Refund } from '@/types';
-import { MOCK_POLICIES } from '@/lib/mock-data';
+import { Reservation, Refund, CancellationPolicy } from '@/types';
+import { policiesService } from '@/services/policies.service';
 
 type TabKey = 'proximas' | 'pasadas' | 'todas';
 
@@ -67,7 +67,11 @@ export default function MyBookingsPage() {
   const [cancelStep, setCancelStep] = useState<1 | 2>(1);
   const [cancelling, setCancelling] = useState(false);
 
-  const activePolicy = MOCK_POLICIES.find((p) => p.activo) ?? null;
+  const [activePolicy, setActivePolicy] = useState<CancellationPolicy | null>(null);
+
+  useEffect(() => {
+    policiesService.getActive().then(setActivePolicy);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -101,7 +105,7 @@ export default function MyBookingsPage() {
     : 0;
   const eligibleForRefund = activePolicy ? horasRestantes >= activePolicy.horas_limite : false;
   const refundAmount = cancelTarget && activePolicy && eligibleForRefund
-    ? Math.round((cancelTarget.total * activePolicy.porcentaje_reembolso) / 100)
+    ? Math.round(((cancelTarget.total ?? 0) * activePolicy.porcentaje_reembolso) / 100)
     : 0;
 
   function openCancelModal(id: number) {

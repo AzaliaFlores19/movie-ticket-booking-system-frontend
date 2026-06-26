@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Plus, Pencil, Trash2, X, AlertCircle, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { MOCK_POLICIES } from '@/lib/mock-data';
+import { policiesService } from '@/services/policies.service';
 import type { CancellationPolicy } from '@/types';
 
 const PER_PAGE = 10;
@@ -35,9 +35,17 @@ function RefundBadge({ horas, porcentaje }: { horas: number; porcentaje: number 
 }
 
 export default function PoliciesAdminPage() {
-  const [policies, setPolicies] = useState<CancellationPolicy[]>([...MOCK_POLICIES]);
+  const [policies, setPolicies] = useState<CancellationPolicy[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    policiesService.getAll().then((data) => {
+      setPolicies(data);
+      setLoading(false);
+    });
+  }, []);
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<CancellationPolicy | null>(null);
@@ -66,43 +74,45 @@ export default function PoliciesAdminPage() {
     setEditingPolicy(null);
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const payload = { ...form, descripcion: form.descripcion || undefined };
-    if (showCreate) {
-      const newPolicy: CancellationPolicy = { id: Date.now(), ...payload, activo: true, createdAt: new Date().toISOString() };
-      const hadActive = policies.some((p) => p.activo);
-      setPolicies((prev) => [newPolicy, ...prev.map((p) => ({ ...p, activo: false }))]);
-      if (hadActive) {
-        toast.success('Política creada y activada. La política anterior fue desactivada.');
-      } else {
-        toast.success('Política creada y activada correctamente.');
+    const payload = { horas_limite: form.horas_limite, porcentaje_reembolso: form.porcentaje_reembolso };
+    try {
+      if (showCreate) {
+        const created = await policiesService.create(payload);
+        setPolicies((prev) => [created, ...prev.map((p) => ({ ...p, activo: false }))]);
+        toast.success('Política creada correctamente.');
+      } else if (editingPolicy) {
+        const updated = await policiesService.update(editingPolicy.id, payload);
+        setPolicies((prev) => prev.map((p) => p.id === editingPolicy.id ? updated : p));
+        toast.success('Política actualizada correctamente.');
       }
-    } else if (editingPolicy) {
-      setPolicies((prev) => prev.map((p) => p.id === editingPolicy.id ? { ...p, ...payload } : p));
-      toast.success('Política actualizada correctamente.');
+    } catch {
+      toast.error('No se pudo guardar la política.');
     }
     closeModal();
   }
 
-  function handleDelete(id: number) {
-    setPolicies((prev) => prev.filter((p) => p.id !== id));
+  async function handleDelete(id: number) {
+    try {
+      await policiesService.remove(id);
+      setPolicies((prev) => prev.filter((p) => p.id !== id));
+      toast.success('Política eliminada correctamente.');
+    } catch {
+      toast.error('No se pudo eliminar la política.');
+    }
     setDeletingId(null);
-    toast.success('Política eliminada correctamente.');
   }
 
   function toggleActive(policy: CancellationPolicy) {
-    if (policy.activo) {
-      setPolicies((prev) => prev.map((p) => p.id === policy.id ? { ...p, activo: false } : p));
-      toast.info('Política desactivada.');
+    const previousActive = policies.find((p) => p.activo);
+    setPolicies((prev) => prev.map((p) => ({ ...p, activo: p.id === policy.id ? !p.activo : false })));
+    if (!policy.activo && previousActive) {
+      toast.success(`"${policy.nombre}" activada. "${previousActive.nombre}" fue desactivada.`);
+    } else if (!policy.activo) {
+      toast.success(`"${policy.nombre}" activada.`);
     } else {
-      const previousActive = policies.find((p) => p.activo);
-      setPolicies((prev) => prev.map((p) => ({ ...p, activo: p.id === policy.id })));
-      if (previousActive) {
-        toast.success(`"${policy.nombre}" activada. "${previousActive.nombre}" fue desactivada.`);
-      } else {
-        toast.success(`"${policy.nombre}" activada.`);
-      }
+      toast.info('Política desactivada.');
     }
   }
 
@@ -153,7 +163,13 @@ export default function PoliciesAdminPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/40">
-              {paginated.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center text-zinc-500 text-sm">
+                    Cargando políticas...
+                  </td>
+                </tr>
+              ) : paginated.length === 0 ? (
                 <tr>
                   <td colSpan={4}>
                     <div className="flex flex-col items-center justify-center py-16 gap-3">

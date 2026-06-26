@@ -7,4 +7,15 @@ const instance = axios.create({
   },
 });
 
+instance.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const session = localStorage.getItem('movie_auth_session');
+    if (session) {
+      const { token } = JSON.parse(session);
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
 export default instance;

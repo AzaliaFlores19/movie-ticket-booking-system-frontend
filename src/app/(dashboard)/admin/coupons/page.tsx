@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Plus, Pencil, Ticket, X, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { MOCK_COUPONS } from '@/lib/mock-data';
+import { couponsService } from '@/services/coupons.service';
 import type { Coupon } from '@/types';
 
 const PER_PAGE = 10;
@@ -30,9 +30,17 @@ function Field({ label, required, children }: { label: string; required?: boolea
 const inputCls = "w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/60";
 
 export default function CouponsAdminPage() {
-  const [coupons, setCoupons] = useState<Coupon[]>([...MOCK_COUPONS]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    couponsService.getAll().then((data) => {
+      setCoupons(data);
+      setLoading(false);
+    });
+  }, []);
 
   // Create modal
   const [showCreate, setShowCreate] = useState(false);
@@ -45,20 +53,14 @@ export default function CouponsAdminPage() {
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  function toggleActive(id: number) {
-    setCoupons((prev) =>
-      prev.map((c) => {
-        if (c.id === id) {
-          const nextStatus = !c.activo;
-          // Mostramos el toast después de retornar el nuevo estado para evitar el error de renderizado
-          setTimeout(() => {
-            toast.info(nextStatus ? 'Cupón activado' : 'Cupón desactivado');
-          }, 0);
-          return { ...c, activo: nextStatus };
-        }
-        return c;
-      })
-    );
+  async function toggleActive(id: number) {
+    try {
+      const updated = await couponsService.toggleStatus(id);
+      setCoupons((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      toast.info(updated.activo ? 'Cupón activado' : 'Cupón desactivado');
+    } catch {
+      toast.error('No se pudo cambiar el estado del cupón.');
+    }
   }
 
   function openEdit(coupon: Coupon) {
@@ -72,43 +74,53 @@ export default function CouponsAdminPage() {
     });
   }
 
-  function handleCreateSubmit(e: React.FormEvent) {
+  async function handleCreateSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const newCoupon: Coupon = {
-      id: Date.now(),
-      codigo: createForm.codigo.toUpperCase(),
-      tipo: createForm.tipo,
-      valor: Number(createForm.valor),
-      fecha_fin: createForm.fecha_fin || undefined,
-      usos_maximo: Number(createForm.usos_maximo),
-      usos_actuales: 0,
-      activo: true,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    setCoupons((prev) => [newCoupon, ...prev]);
-    setShowCreate(false);
-    setCreateForm(EMPTY_CREATE);
-    toast.success('Cupón creado correctamente');
+    try {
+      const created = await couponsService.create({
+        codigo: createForm.codigo.toUpperCase(),
+        tipo: createForm.tipo,
+        valor: Number(createForm.valor),
+        fecha_fin: createForm.fecha_fin || undefined,
+        usos_maximo: Number(createForm.usos_maximo) || undefined,
+      });
+      setCoupons((prev) => [created, ...prev]);
+      setShowCreate(false);
+      setCreateForm(EMPTY_CREATE);
+      toast.success('Cupón creado correctamente');
+    } catch {
+      toast.error('No se pudo crear el cupón.');
+    }
   }
 
-  function handleEditSubmit(e: React.FormEvent) {
+  async function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!editingCoupon) return;
-    setCoupons((prev) =>
-      prev.map((c) =>
-        c.id === editingCoupon.id
-          ? { ...c, ...editForm, codigo: editForm.codigo.toUpperCase(), valor: Number(editForm.valor), usos_maximo: Number(editForm.usos_maximo) }
-          : c
-      )
-    );
-    setEditingCoupon(null);
-    toast.success('Cupón actualizado correctamente');
+    try {
+      const updated = await couponsService.update(editingCoupon.id, {
+        codigo: editForm.codigo.toUpperCase(),
+        tipo: editForm.tipo,
+        valor: Number(editForm.valor),
+        fecha_fin: editForm.fecha_fin || undefined,
+        usos_maximo: Number(editForm.usos_maximo) || undefined,
+      });
+      setCoupons((prev) => prev.map((c) => (c.id === editingCoupon.id ? updated : c)));
+      setEditingCoupon(null);
+      toast.success('Cupón actualizado correctamente');
+    } catch {
+      toast.error('No se pudo actualizar el cupón.');
+    }
   }
 
-  function handleDelete(id: number) {
-    setCoupons((prev) => prev.filter((c) => c.id !== id));
+  async function handleDelete(id: number) {
+    try {
+      await couponsService.remove(id);
+      setCoupons((prev) => prev.filter((c) => c.id !== id));
+      toast.success('Cupón eliminado correctamente');
+    } catch {
+      toast.error('No se pudo eliminar el cupón.');
+    }
     setDeletingId(null);
-    toast.success('Cupón eliminado correctamente');
   }
 
   const filtered = coupons.filter(
@@ -164,7 +176,13 @@ export default function CouponsAdminPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/40">
-              {paginated.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-zinc-500 text-sm">
+                    Cargando cupones...
+                  </td>
+                </tr>
+              ) : paginated.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
                     <div className="flex flex-col items-center justify-center py-16 gap-3">
