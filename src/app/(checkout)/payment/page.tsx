@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   CalendarClock,
@@ -15,8 +15,13 @@ import {
 import MainLayout from "@/components/layout/MainLayout";
 import { BookingTimer } from "@/components/booking/BookingTimer";
 import { toast } from "react-toastify";
+import { MOCK_COUPONS } from "@/lib/mock-data";
+import { couponsApi } from "@/services/coupons.service";
+import { functionsService } from "@/services/functions.service";
+import type { Coupon, Funcion } from "@/types";
 
 type PaymentMethod = "TARJETA" | "EFECTIVO";
+type CardBrand = "AMEX" | "VISA" | "MASTERCARD" | "CARD";
 
 function formatShowtime(value?: string | null) {
   if (!value) return "-";
@@ -24,12 +29,26 @@ function formatShowtime(value?: string | null) {
   return time ? `${date} ${time.slice(0, 5)}` : date;
 }
 
+function getCardBrand(digits: string): CardBrand {
+  if (/^3[47]/.test(digits)) return "AMEX";
+  if (/^4/.test(digits)) return "VISA";
+  if (/^(5[1-5]|2[2-7])/.test(digits)) return "MASTERCARD";
+  return "CARD";
+}
+
 function formatCardNumber(value: string) {
-  return value
-    .replace(/\D/g, "")
-    .slice(0, 16)
-    .replace(/(.{4})/g, "$1 ")
-    .trim();
+  const digits = value.replace(/\D/g, "");
+  const brand = getCardBrand(digits);
+  const maxLength = brand === "AMEX" ? 15 : 16;
+  const trimmed = digits.slice(0, maxLength);
+
+  if (brand === "AMEX") {
+    return [trimmed.slice(0, 4), trimmed.slice(4, 10), trimmed.slice(10, 15)]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  return trimmed.replace(/(.{4})/g, "$1 ").trim();
 }
 
 function formatExpiry(value: string) {
@@ -38,11 +57,48 @@ function formatExpiry(value: string) {
   return digits;
 }
 
+function couponDiscount(coupon: Coupon, total: number) {
+  if (coupon.tipo === "PORCENTAJE") {
+    return Math.min(total, total * (coupon.valor / 100));
+  }
+
+  return Math.min(total, coupon.valor);
+}
+
+function validateCoupon(coupon: Coupon) {
+  const today = new Date();
+  const start = coupon.fecha_inicio ? new Date(`${coupon.fecha_inicio}T00:00:00`) : null;
+  const end = coupon.fecha_fin ? new Date(`${coupon.fecha_fin}T23:59:59`) : null;
+  const maxUses = coupon.usos_maximo ?? 0;
+  const currentUses = coupon.usos_actuales ?? 0;
+
+  if (coupon.activo === false) return "Este cupon no esta activo.";
+  if (start && today < start) return "Este cupon aun no esta disponible.";
+  if (end && today > end) return "Este cupon ya expiro.";
+  if (maxUses > 0 && currentUses >= maxUses) return "Este cupon ya alcanzo su limite de usos.";
+  if (coupon.valor <= 0) return "Este cupon no tiene un descuento valido.";
+
+  return null;
+}
+
+function createReservationNumber() {
+  return `RES-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
+function createPaymentReference() {
+  return `SIM-${Date.now()}`;
+}
+
+function createIsoTimestamp() {
+  return new Date().toISOString();
+}
+
 function PaymentContent() {
   const params = useSearchParams();
   const router = useRouter();
 
-  const seats = params.get("seats")?.split(",").filter(Boolean) ?? [];
+  const funcionId = Number(params.get("funcionId"));
+  const seats = (params.get("asientos") ?? params.get("seats"))?.split(",").filter(Boolean) ?? [];
   const movie = params.get("movie") || "Película";
   const cine = params.get("cine") || "Cine";
   const sala = params.get("sala") || "Sala";
@@ -50,21 +106,51 @@ function PaymentContent() {
   const total = params.get("total") || "0";
 
   const [method, setMethod] = useState<PaymentMethod>("TARJETA");
+  const [funcion, setFuncion] = useState<Funcion | null>(null);
   const [cardNumber, setCardNumber] = useState("");
   const [cardName, setCardName] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvv, setCvv] = useState("");
   const [cashAmount, setCashAmount] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const totalNum = parseFloat(total) || 0;
+  useEffect(() => {
+    if (!funcionId) return;
+    let active = true;
+
+    functionsService.getOne(funcionId).then((data) => {
+      if (active) setFuncion(data);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [funcionId]);
+
+  const totalNum = parseFloat(total) || (funcion?.precio && seats.length ? funcion.precio * seats.length : 0);
+  const discount = appliedCoupon ? couponDiscount(appliedCoupon, totalNum) : 0;
+  const finalTotal = Math.max(0, totalNum - discount);
   const cashNum = parseFloat(cashAmount) || 0;
-  const vuelto = cashNum - totalNum;
+  const vuelto = cashNum - finalTotal;
+  const cardDigits = cardNumber.replace(/\s/g, "");
+  const cardBrand = getCardBrand(cardDigits);
+  const resolvedMovie = params.get("movie") || funcion?.pelicula?.titulo || movie;
+  const resolvedCine = params.get("cine") || funcion?.cine?.nombre || cine;
+  const resolvedSala = params.get("sala") || funcion?.sala?.nombre || sala;
+  const resolvedShowtime = params.get("showtime") || funcion?.fecha_hora || showtime;
 
   function validateCard(): boolean {
-    const digits = cardNumber.replace(/\s/g, "");
-    if (digits.length !== 16) {
-      toast.error("El número de tarjeta debe tener 16 dígitos.");
+    const expectedLength = cardBrand === "AMEX" ? 15 : 16;
+    const expectedCvv = cardBrand === "AMEX" ? 4 : 3;
+
+    if (cardDigits.length !== expectedLength) {
+      toast.error(
+        cardBrand === "AMEX"
+          ? "American Express debe tener 15 digitos."
+          : "El numero de tarjeta debe tener 16 digitos.",
+      );
       return false;
     }
     if (!cardName.trim()) {
@@ -83,14 +169,55 @@ function PaymentContent() {
       year < now.getFullYear() ||
       (year === now.getFullYear() && month < now.getMonth() + 1)
     ) {
-      toast.error("La fecha de expiración no es válida.");
+      toast.error("La fecha de expiracion no es valida.");
       return false;
     }
-    if (cvv.length < 3) {
-      toast.error("El CVV debe tener al menos 3 dígitos.");
+    if (cvv.length !== expectedCvv) {
+      toast.error(
+        cardBrand === "AMEX"
+          ? "American Express usa CVV de 4 digitos."
+          : "El CVV debe tener 3 digitos.",
+      );
       return false;
     }
     return true;
+  }
+
+  async function applyCoupon() {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) {
+      toast.error("Ingresa un codigo de cupon.");
+      return;
+    }
+
+    let coupon = MOCK_COUPONS.find((item) => item.codigo.toUpperCase() === code);
+
+    try {
+      coupon = await couponsApi.getCouponByCode(code);
+    } catch {
+      // Sin backend real todavia, usamos los cupones mock del proyecto.
+    }
+
+    if (!coupon) {
+      toast.error("Cupon no encontrado.");
+      return;
+    }
+
+    const validationError = validateCoupon(coupon);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
+    setAppliedCoupon(coupon);
+    setCouponCode(coupon.codigo);
+    toast.success(`Cupon ${coupon.codigo} aplicado.`);
+  }
+
+  function removeCoupon() {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    toast.info("Cupon removido.");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -103,8 +230,8 @@ function PaymentContent() {
         toast.error("Ingresa el monto que vas a entregar.");
         return;
       }
-      if (cashNum < totalNum) {
-        toast.error(`El monto es insuficiente. Debes entregar al menos L ${totalNum}.`);
+      if (cashNum < finalTotal) {
+        toast.error(`El monto es insuficiente. Debes entregar al menos L ${finalTotal.toFixed(2)}.`);
         return;
       }
     }
@@ -116,24 +243,26 @@ function PaymentContent() {
       const result = {
         status: "success",
         reserva: {
-          numero_reserva: `RES-${Math.floor(100000 + Math.random() * 900000)}`,
+          numero_reserva: createReservationNumber(),
           estado: "PAGADA",
         },
         pago: {
-          monto_final: total,
+          monto_final: finalTotal.toFixed(2),
           metodo: method,
           estado: "APROBADO",
-          referencia_externa: `SIM-${Date.now()}`,
-          created_at: new Date().toISOString(),
+          referencia_externa: createPaymentReference(),
+          created_at: createIsoTimestamp(),
+          descuento: discount.toFixed(2),
+          cupon: appliedCoupon?.codigo,
           ...(method === "EFECTIVO" && {
             monto_entregado: cashAmount,
             vuelto: vuelto.toFixed(2),
           }),
         },
-        movie,
-        cine,
-        sala,
-        showtime,
+        movie: resolvedMovie,
+        cine: resolvedCine,
+        sala: resolvedSala,
+        showtime: resolvedShowtime,
         seats,
       };
 
@@ -217,6 +346,45 @@ function PaymentContent() {
                 </div>
               </div>
 
+              <div className="bg-zinc-950 border border-zinc-800/60 rounded-2xl p-5 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">Cupon de descuento</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">Puedes usar cupones activos como SAVE20 o BIENVENIDO.</p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    disabled={!!appliedCoupon}
+                    onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                    placeholder="CODIGO"
+                    className="flex-1 bg-white/[0.03] border border-zinc-800/80 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-700 font-mono uppercase outline-none focus:border-red-600/50 focus:bg-red-950/[0.08] focus:ring-1 focus:ring-red-500/10 transition-all duration-200 disabled:opacity-60"
+                  />
+                  {appliedCoupon ? (
+                    <button
+                      type="button"
+                      onClick={removeCoupon}
+                      className="rounded-xl border border-zinc-700 px-4 py-3 text-xs font-bold text-zinc-300 hover:bg-zinc-800 transition-colors"
+                    >
+                      QUITAR
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={applyCoupon}
+                      className="rounded-xl bg-red-600 px-4 py-3 text-xs font-bold text-white hover:bg-red-700 transition-colors"
+                    >
+                      APLICAR
+                    </button>
+                  )}
+                </div>
+                {appliedCoupon && (
+                  <p className="text-xs text-emerald-400">
+                    {appliedCoupon.codigo} aplicado: -L {discount.toFixed(2)}
+                  </p>
+                )}
+              </div>
+
               {/* Formulario de tarjeta */}
               {method === "TARJETA" && (
                 <div className="bg-zinc-950 border border-zinc-800/60 rounded-2xl p-5 space-y-4">
@@ -245,10 +413,14 @@ function PaymentContent() {
                         onChange={(e) =>
                           setCardNumber(formatCardNumber(e.target.value))
                         }
-                        maxLength={19}
+                        maxLength={cardBrand === "AMEX" ? 17 : 19}
                         className="w-full bg-white/[0.03] border border-zinc-800/80 rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-zinc-700 font-mono tracking-widest outline-none focus:border-red-600/50 focus:bg-red-950/[0.08] focus:ring-1 focus:ring-red-500/10 transition-all duration-200"
                       />
                     </div>
+                    <p className="mt-1.5 text-[10px] text-zinc-600">
+                      Aceptamos Visa, Mastercard y American Express.
+                      {cardDigits && <span className="text-zinc-400"> Detectada: {cardBrand === "AMEX" ? "American Express" : cardBrand}</span>}
+                    </p>
                   </div>
 
                   {/* Nombre */}
@@ -297,10 +469,10 @@ function PaymentContent() {
                           value={cvv}
                           onChange={(e) =>
                             setCvv(
-                              e.target.value.replace(/\D/g, "").slice(0, 4),
+                              e.target.value.replace(/\D/g, "").slice(0, cardBrand === "AMEX" ? 4 : 3),
                             )
                           }
-                          maxLength={4}
+                          maxLength={cardBrand === "AMEX" ? 4 : 3}
                           className="w-full bg-white/[0.03] border border-zinc-800/80 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-700 font-mono outline-none focus:border-red-600/50 focus:bg-red-950/[0.08] focus:ring-1 focus:ring-red-500/10 transition-all duration-200"
                         />
                       </div>
@@ -337,24 +509,24 @@ function PaymentContent() {
                   {/* Preview del vuelto */}
                   {cashNum > 0 && (
                     <div className={`rounded-xl border p-3 space-y-2 text-sm transition-colors ${
-                      cashNum >= totalNum
+                      cashNum >= finalTotal
                         ? "bg-emerald-950/20 border-emerald-500/20"
                         : "bg-red-950/20 border-red-500/20"
                     }`}>
                       <div className="flex justify-between text-zinc-400">
                         <span>Total a pagar</span>
-                        <span className="text-white font-mono">L {totalNum.toFixed(2)}</span>
+                        <span className="text-white font-mono">L {finalTotal.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-zinc-400">
                         <span>Monto entregado</span>
                         <span className="text-white font-mono">L {cashNum.toFixed(2)}</span>
                       </div>
                       <div className={`flex justify-between font-bold border-t pt-2 ${
-                        cashNum >= totalNum
+                        cashNum >= finalTotal
                           ? "border-emerald-500/20 text-emerald-400"
                           : "border-red-500/20 text-red-400"
                       }`}>
-                        <span>{cashNum >= totalNum ? "Vuelto" : "Falta"}</span>
+                        <span>{cashNum >= finalTotal ? "Vuelto" : "Falta"}</span>
                         <span className="font-mono">
                           L {Math.abs(vuelto).toFixed(2)}
                         </span>
@@ -381,15 +553,15 @@ function PaymentContent() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-white leading-tight truncate">
-                      {movie}
+                      {resolvedMovie}
                     </p>
                     <p className="text-xs text-zinc-500 mt-0.5 flex items-center gap-1">
                       <MapPin className="h-3 w-3 flex-shrink-0" />
-                      {cine} — {sala}
+                      {resolvedCine} - {resolvedSala}
                     </p>
                     <p className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5">
                       <CalendarClock className="h-3 w-3 flex-shrink-0" />
-                      {formatShowtime(showtime)}
+                      {formatShowtime(resolvedShowtime)}
                     </p>
                   </div>
                 </div>
@@ -419,9 +591,19 @@ function PaymentContent() {
                     <span>Boletos</span>
                     <span className="text-zinc-100">{seats.length}</span>
                   </div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Subtotal</span>
+                    <span className="text-zinc-100">L {totalNum.toFixed(2)}</span>
+                  </div>
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-emerald-400">
+                      <span>Cupon {appliedCoupon.codigo}</span>
+                      <span>-L {discount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-base font-bold text-white">
                     <span>Total</span>
-                    <span>L {total}</span>
+                    <span>L {finalTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -439,7 +621,7 @@ function PaymentContent() {
                 ) : (
                   <>
                     <Lock className="h-4 w-4" />
-                    Pagar L {total}
+                    Pagar L {finalTotal.toFixed(2)}
                   </>
                 )}
               </button>
