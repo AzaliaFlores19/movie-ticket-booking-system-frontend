@@ -229,7 +229,7 @@ export default function UsersAdminPage() {
       {/* Modal — Crear Usuario */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-xl">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
             <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-800 sticky top-0 bg-zinc-900 z-10">
               <h2 className="text-lg font-semibold text-white">Agregar Usuario</h2>
               <button onClick={() => { setShowCreate(false); setCreateForm(EMPTY_CREATE); setShowCreatePwd(false); }} className="text-zinc-400 hover:text-white transition-colors">
@@ -302,7 +302,7 @@ export default function UsersAdminPage() {
       {/* Modal — Editar Usuario */}
       {editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-xl">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
             <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-800 sticky top-0 bg-zinc-900 z-10">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-red-600/20 border border-red-500/20 flex items-center justify-center text-red-400 font-bold text-xs">
