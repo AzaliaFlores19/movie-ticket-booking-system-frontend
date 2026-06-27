@@ -16,7 +16,6 @@ import MainLayout from "@/components/layout/MainLayout";
 import { BookingTimer } from "@/components/booking/BookingTimer";
 import { toast } from "react-toastify";
 import { MOCK_COUPONS } from "@/lib/mock-data";
-import { couponsApi } from "@/services/coupons.service";
 import { functionsService } from "@/services/functions.service";
 import type { Coupon, Funcion } from "@/types";
 

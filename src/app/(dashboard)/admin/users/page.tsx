@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, Plus, Pencil, Users, X, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { MOCK_USERS, MOCK_ROLES } from '@/lib/mock-data';
+import { MOCK_ROLES } from '@/lib/mock-data';
+import { usersService } from '@/services/users.service';
 import type { User } from '@/types';
 
 const PER_PAGE = 10;
@@ -36,11 +37,29 @@ function Field({ label, required, children }: { label: string; required?: boolea
 const inputCls = "w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/60";
 
 export default function UsersAdminPage() {
-  const [users, setUsers] = useState<UserWithPassword[]>([...MOCK_USERS]);
+  const [users, setUsers] = useState<UserWithPassword[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
-  const [activeIds, setActiveIds] = useState<Set<number>>(() => new Set(MOCK_USERS.map((u) => u.id)));
+  const [activeIds, setActiveIds] = useState<Set<number>>(() => new Set());
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  async function loadUsers() {
+    try {
+      setLoading(true);
+      const data = await usersService.getAll();
+      setUsers(data);
+      setActiveIds(new Set(data.map((u) => u.id)));
+    } catch (error) {
+      toast.error('Error al cargar los usuarios');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // Create modal
   const [showCreate, setShowCreate] = useState(false);
@@ -68,24 +87,25 @@ export default function UsersAdminPage() {
     setEditForm({ name: user.name, email: user.email, roleId: String(user.roleId) });
   }
 
-  function handleCreateSubmit(e: React.FormEvent) {
+  async function handleCreateSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const role = MOCK_ROLES.find((r) => r.id === Number(createForm.roleId));
-    const newUser: UserWithPassword = {
-      id: Date.now(),
-      name: createForm.name,
-      email: createForm.email,
-      password: createForm.password,
-      roleId: Number(createForm.roleId),
-      roleName: role?.name ?? '',
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    setUsers((prev) => [newUser, ...prev]);
-    setActiveIds((prev) => new Set([...prev, newUser.id]));
-    setShowCreate(false);
-    setCreateForm(EMPTY_CREATE);
-    setShowCreatePwd(false);
-    toast.success('Usuario creado correctamente');
+    try {
+      const newUser = await usersService.create({
+        name: createForm.name,
+        email: createForm.email,
+        password: createForm.password,
+        roleId: Number(createForm.roleId),
+      });
+      setUsers((prev) => [newUser, ...prev]);
+      setActiveIds((prev) => new Set([...prev, newUser.id]));
+      setShowCreate(false);
+      setCreateForm(EMPTY_CREATE);
+      setShowCreatePwd(false);
+      toast.success('Usuario creado correctamente');
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      toast.error(Array.isArray(message) ? message[0] : message ?? 'Error al crear el usuario');
+    }
   }
 
   function handleEditSubmit(e: React.FormEvent) {
@@ -156,7 +176,13 @@ export default function UsersAdminPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/40">
-            {paginated.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-16 text-center text-sm text-zinc-500">
+                  Cargando usuarios...
+                </td>
+              </tr>
+            ) : paginated.length === 0 ? (
               <tr>
                 <td colSpan={5}>
                   <div className="flex flex-col items-center justify-center py-16 gap-3">
