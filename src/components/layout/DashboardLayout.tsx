@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, ReactNode, useEffect } from 'react';
+import { useState, ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { authService } from '@/services/auth.service';
+import { usePathname } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Users, Building2, Film, CalendarClock, Ticket,
   CreditCard, Tag, FileText, MapPin, Monitor, Globe, Shield,
@@ -14,51 +14,50 @@ interface DashboardLayoutProps {
   children: ReactNode;
 }
 
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: 'Admin',
+  RECEPCIONISTA: 'Recepcionista',
+  CLIENTE: 'Cliente',
+};
+
 const NAV_ITEMS = [
-  { label: 'Películas', href: '/admin/movies', icon: Film },
-  { label: 'Funciones', href: '/admin/functions', icon: CalendarClock },
-  { label: 'Cines', href: '/admin/cinemas', icon: Building2 },
-  { label: 'Salas', href: '/admin/salas', icon: Monitor },
-  { label: 'Ciudades', href: '/admin/cities', icon: MapPin },
+  { label: 'Películas', href: '/admin/movies', icon: Film, roles: ['ADMIN'] },
+  { label: 'Funciones', href: '/admin/functions', icon: CalendarClock, roles: ['ADMIN'] },
+  { label: 'Cines', href: '/admin/cinemas', icon: Building2, roles: ['ADMIN'] },
+  { label: 'Salas', href: '/admin/salas', icon: Monitor, roles: ['ADMIN'] },
+  { label: 'Ciudades', href: '/admin/cities', icon: MapPin, roles: ['ADMIN'] },
   { label: 'Géneros', href: '/admin/genres', icon: Film, roles: ['ADMIN'] },
   { label: 'Idiomas', href: '/admin/languages', icon: Globe, roles: ['ADMIN'] },
   { label: 'Usuarios', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
   { label: 'Roles', href: '/admin/roles', icon: Shield, roles: ['ADMIN'] },
-  { label: 'Reservaciones', href: '/admin/reservations', icon: Ticket },
-  { label: 'Pagos y Reembolsos', href: '/admin/payments', icon: CreditCard },
+  { label: 'Reservaciones', href: '/admin/reservations', icon: Ticket, roles: ['ADMIN', 'RECEPCIONISTA'] },
+  { label: 'Pagos y Reembolsos', href: '/admin/payments', icon: CreditCard, roles: ['ADMIN', 'RECEPCIONISTA'] },
   { label: 'Cupones', href: '/admin/coupons', icon: Tag, roles: ['ADMIN'] },
   { label: 'Políticas', href: '/admin/policies', icon: FileText, roles: ['ADMIN'] },
-  { label: 'Reportes', href: '/admin/reports/reservations', icon: BarChart3 },
+  { label: 'Reportes', href: '/admin/reports/reservations', icon: BarChart3, roles: ['ADMIN', 'RECEPCIONISTA'] },
 ];
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [user, setUser] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoading, logout } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    const currentUser = authService.getCurrentUser();
-    if (!currentUser) {
-      router.replace('/login?redirect=' + encodeURIComponent(pathname));
-    } else {
-      setUser(currentUser);
-      setIsLoading(false);
-    }
-  }, [router, pathname]);
-
   if (isLoading) return null;
+
+  if (!user) {
+    window.location.href = '/login?redirect=' + encodeURIComponent(pathname);
+    return null;
+  }
 
   const filteredItems = NAV_ITEMS.filter((item) => {
     if (!item.roles) return true;
-    return user && item.roles.includes(user.role);
+    return item.roles.includes(user.role);
   });
 
   const handleLogout = () => {
-    authService.logout();
-    router.push('/');
+    logout();
+    window.location.href = '/';
   };
 
   return (
@@ -137,7 +136,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-zinc-200 truncate">{user?.name}</p>
-                  <p className="text-[10px] text-zinc-500 font-medium tracking-wider uppercase mt-0.5">{user?.role}</p>
+                  <p className="text-[10px] text-zinc-500 font-medium tracking-wider uppercase mt-0.5">{user?.role ? (ROLE_LABEL[user.role] ?? user.role) : ''}</p>
                 </div>
                 <button
                   onClick={handleLogout}

@@ -18,7 +18,7 @@ export const PEXELS_POSTERS = [
 
 export const MOCK_ROLES: Role[] = [
   { id: 1, name: 'ADMIN'},
-  { id: 2, name: 'SECRETARIO' },
+  { id: 2, name: 'RECEPCIONISTA' },
   { id: 3, name: 'CLIENTE' },
 ];
 
@@ -38,7 +38,7 @@ export const MOCK_USERS: Array<User & { password?: string }> = [
     name: 'Secretario', 
     email: 'secretario@demo.com', 
     roleId: 2, 
-    roleName: 'SECRETARIO', 
+    roleName: 'RECEPCIONISTA', 
     password: 'secre123', // Contraseña personalizada
     createdAt: '2024-02-15' 
   },

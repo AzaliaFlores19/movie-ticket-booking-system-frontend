@@ -2,16 +2,19 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Film, Mail, Loader2, User, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Film, Mail, Loader2, User, Lock, Eye, EyeOff, Phone } from 'lucide-react';
 import { authService } from '@/services/auth.service';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 export default function RegisterPage() {
+  const { setUser } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -19,35 +22,38 @@ export default function RegisterPage() {
     e.preventDefault();
 
     if (!name.trim() || !email.trim() || !password.trim()) {
-      const msg = 'Por favor, rellena todos los campos requeridos.';
-      toast.error(msg);
+      toast.error('Por favor, rellena todos los campos requeridos.');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      const msg = 'Por favor, introduce un correo electrónico válido (ejemplo@dominio.com).';
-      toast.error(msg);
+      toast.error('Por favor, introduce un correo electrónico válido (ejemplo@dominio.com).');
       return;
     }
 
     if (password.length < 6) {
-      const msg = 'La contraseña debe tener al menos 6 caracteres.';
-      toast.error(msg);
+      toast.error('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
     setLoading(true);
 
     try {
-      await authService.register(name, email, password);
-      toast.success('¡Cuenta creada con éxito! Ya puedes iniciar sesión.');
-      setTimeout(() => {
+      const result = await authService.register(name, email, password, phone || undefined);
+
+      if (result.autoLogin && result.sessionData) {
+        setUser(result.sessionData);
+        toast.success('¡Cuenta creada con éxito! Bienvenido.');
+        // Full reload so the middleware sees the new cookies
+        setTimeout(() => { window.location.href = '/'; }, 400);
+      } else {
+        toast.success('¡Cuenta creada con éxito! Ya puedes iniciar sesión.');
+        // router.push to avoid page reload (preserves in-memory mock state)
         router.push('/login');
-      }, 600);
+      }
     } catch (err: any) {
-      const errorMessage = err?.message || 'Hubo un error al intentar crear la cuenta. Inténtalo de nuevo.';
-      toast.error(errorMessage);
+      toast.error(err?.message || 'Hubo un error al intentar crear la cuenta. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -96,6 +102,22 @@ export default function RegisterPage() {
                   placeholder="Juan Pérez"
                   className="w-full bg-white/[0.03] border border-zinc-800/80 rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-zinc-700 outline-none focus:border-red-600/50 focus:bg-red-950/[0.08] focus:ring-1 focus:ring-red-500/10 transition-all duration-200"
                   required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[9px] font-bold text-zinc-500 mb-2 block uppercase tracking-[0.14em]">
+                Teléfono <span className="text-zinc-600 normal-case">(opcional)</span>
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Ej: 88001234"
+                  className="w-full bg-white/[0.03] border border-zinc-800/80 rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-zinc-700 outline-none focus:border-red-600/50 focus:bg-red-950/[0.08] focus:ring-1 focus:ring-red-500/10 transition-all duration-200"
                 />
               </div>
             </div>

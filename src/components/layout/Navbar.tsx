@@ -1,15 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { authService } from '@/services/auth.service';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Film, Menu, X, Ticket, User, LogOut,
-  ChevronDown, CalendarClock, Building2,
+  ChevronDown, CalendarClock,
   LayoutDashboard,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { toast } from 'sonner';
+import { usePathname } from 'next/navigation';
+
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: 'Admin',
+  RECEPCIONISTA: 'Recepcionista',
+  CLIENTE: 'Cliente',
+};
 
 const NAV_LINKS = [
   { label: 'Películas', href: '/', icon: Film },
@@ -17,27 +22,22 @@ const NAV_LINKS = [
 ];
 
 export default function Navbar() {
-  const [user, setUser] = useState<any>(null);
-  const router = useRouter();
+  const { user, logout } = useAuth();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    setUser(authService.getCurrentUser());
-    
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [pathname]);
+  }, []);
 
   const handleLogout = () => {
-    authService.logout();
-    setUser(null);
-    toast.success('Sesión cerrada correctamente');
-    router.push('/');
+    logout();
     setUserMenuOpen(false);
+    window.location.href = '/';
   };
 
   const isActive = (href: string) =>
@@ -104,7 +104,7 @@ export default function Navbar() {
                       <p className="text-xs font-bold text-white">{user.name}</p>
                       <p className="text-xs text-zinc-500 truncate mt-0.5">{user.email}</p>
                       <span className="inline-block mt-1.5 px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-600/10 text-red-400 border border-red-500/10">
-                        {user.role || 'Cliente'}
+                        {ROLE_LABEL[user.role] ?? user.role}
                       </span>
                     </div>
 
@@ -134,7 +134,7 @@ export default function Navbar() {
                     ))}
 
                     {/* Lógica de Administración (Solo Dashboard Limpio) */}
-                    {(user.role === 'ADMIN' || user.role === 'SECRETARIO') && (
+                    {(user.role === 'ADMIN' || user.role === 'RECEPCIONISTA') && (
                       <>
                         <div className="my-1.5 border-t border-zinc-800" />
                         <Link 
@@ -210,7 +210,7 @@ export default function Navbar() {
                 <User className="w-4 h-4 text-red-500" />
                 <span>Mi Perfil</span>
               </Link>
-              {(user.role === 'ADMIN' || user.role === 'SECRETARIO') && (
+              {(user.role === 'ADMIN' || user.role === 'RECEPCIONISTA') && (
                 <Link
                   href="/admin"
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-[#121212]"

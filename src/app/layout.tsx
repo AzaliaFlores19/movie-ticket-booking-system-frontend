@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ToastContainer } from "react-toastify";
+import { AuthProvider } from "@/contexts/AuthContext";
 import "react-toastify/dist/ReactToastify.css";
 import "./globals.css";
 
@@ -31,7 +32,9 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         <ToastContainer
           position="bottom-right"
           autoClose={3000}
@@ -41,6 +44,7 @@ export default function RootLayout({
           theme="dark"
         />
       </body>
+
     </html>
   );
   
