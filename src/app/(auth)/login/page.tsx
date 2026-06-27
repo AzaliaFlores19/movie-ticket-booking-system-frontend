@@ -35,8 +35,10 @@ export default function LoginPage() {
       setTimeout(() => {
         if (redirect) {
           window.location.href = redirect;
-        } else if (sessionData.role === 'ADMIN' || sessionData.role === 'RECEPCIONISTA') {
-          window.location.href = '/admin';
+        } else if (sessionData.role === 'ADMIN') {
+          window.location.href = '/admin/movies';
+        } else if (sessionData.role === 'RECEPCIONISTA') {
+          window.location.href = '/admin/reservations';
         } else {
           window.location.href = '/';
         }

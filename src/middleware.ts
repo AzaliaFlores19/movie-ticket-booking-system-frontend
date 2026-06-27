@@ -5,19 +5,11 @@ const ADMIN_ROUTES = ['/admin'];
 const PROTECTED_ROUTES = ['/profile', '/my-bookings', '/checkout', '/payment'];
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
 
-// Sub-rutas de /admin accesibles solo por ADMIN (no RECEPCIONISTA)
-const ADMIN_ONLY_SUBROUTES = [
-  '/admin/movies',
-  '/admin/functions',
-  '/admin/cinemas',
-  '/admin/salas',
-  '/admin/cities',
-  '/admin/genres',
-  '/admin/languages',
-  '/admin/users',
-  '/admin/roles',
-  '/admin/coupons',
-  '/admin/policies',
+// Rutas permitidas para RECEPCIONISTA dentro de /admin
+const RECEPCIONISTA_ALLOWED_ROUTES = [
+  '/admin/reservations',
+  '/admin/payments',
+  '/admin/reports',
 ];
 
 export function middleware(request: NextRequest) {
@@ -31,7 +23,7 @@ export function middleware(request: NextRequest) {
 
   // Redirect logged-in users away from login/register
   if (isAuthRoute && token) {
-    const dest = role === 'ADMIN' || role === 'RECEPCIONISTA' ? '/admin' : '/';
+    const dest = role === 'ADMIN' ? '/admin/movies' : role === 'RECEPCIONISTA' ? '/admin/reservations' : '/';
     return NextResponse.redirect(new URL(dest, request.url));
   }
 
@@ -45,9 +37,8 @@ export function middleware(request: NextRequest) {
     if (role !== 'ADMIN' && role !== 'RECEPCIONISTA') {
       return NextResponse.redirect(new URL('/', request.url));
     }
-    // RECEPCIONISTA trying to access ADMIN-only sub-routes → redirect to /admin
-    if (role === 'RECEPCIONISTA' && ADMIN_ONLY_SUBROUTES.some((r) => pathname.startsWith(r))) {
-      return NextResponse.redirect(new URL('/admin', request.url));
+    if (role === 'RECEPCIONISTA' && !RECEPCIONISTA_ALLOWED_ROUTES.some((r) => pathname.startsWith(r))) {
+      return NextResponse.redirect(new URL('/admin/reservations', request.url));
     }
   }
 

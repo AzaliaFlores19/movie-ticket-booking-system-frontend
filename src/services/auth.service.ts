@@ -21,25 +21,27 @@ function clearAuthCookies() {
   document.cookie = `auth_role=;expires=${past};path=/;SameSite=Strict`;
 }
 
+// Mapeo directo de IDs de roles a nombres
+const ROLE_MAP: Record<number, string> = {
+  1: 'ADMIN',
+  2: 'CLIENTE',
+  3: 'RECEPCIONISTA',
+};
+
 // Tries multiple strategies to get the role name string from the backend.
 async function fetchRoleName(accessToken: string, idRol?: number): Promise<string> {
-  const headers = { Authorization: `Bearer ${accessToken}` };
+  // Si tenemos el ID, usamos nuestro mapeo local que es seguro y rápido
+  if (idRol !== undefined && ROLE_MAP[idRol]) {
+    return ROLE_MAP[idRol];
+  }
 
-  // 1. Try GET /auth/profile (JwtStrategy.validate returns { role: string })
+  // Fallback si no tenemos el ID o no está en el mapa
+  const headers = { Authorization: `Bearer ${accessToken}` };
   try {
     const { data } = await axios.get('/auth/profile', { headers });
     const role = data.role ?? data.roles?.nombre ?? data.roleName;
     if (role) return role;
   } catch { /* continue */ }
-
-  // 2. Try GET /roles/:id if we know the numeric id
-  if (idRol) {
-    try {
-      const { data } = await axios.get(`/roles/${idRol}`, { headers });
-      const role = data.nombre ?? data.name ?? data.role;
-      if (role) return role;
-    } catch { /* continue */ }
-  }
 
   return 'CLIENTE';
 }
@@ -79,12 +81,13 @@ export const authService = {
     }
   },
 
-  async register(name: string, email: string, password: string) {
+  async register(name: string, email: string, password: string, phone?: string) {
     try {
       const { data } = await axios.post('/auth/register', {
         name,
         email,
         password,
+        ...(phone && { phone }),
         roleId: 2,
       });
 

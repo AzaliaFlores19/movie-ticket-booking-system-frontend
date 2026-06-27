@@ -2,7 +2,7 @@
 
 import { useState, ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Users, Building2, Film, CalendarClock, Ticket,
@@ -30,24 +30,23 @@ const NAV_ITEMS = [
   { label: 'Idiomas', href: '/admin/languages', icon: Globe, roles: ['ADMIN'] },
   { label: 'Usuarios', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
   { label: 'Roles', href: '/admin/roles', icon: Shield, roles: ['ADMIN'] },
-  { label: 'Reservaciones', href: '/admin/reservations', icon: Ticket },
-  { label: 'Pagos y Reembolsos', href: '/admin/payments', icon: CreditCard },
+  { label: 'Reservaciones', href: '/admin/reservations', icon: Ticket, roles: ['ADMIN', 'RECEPCIONISTA'] },
+  { label: 'Pagos y Reembolsos', href: '/admin/payments', icon: CreditCard, roles: ['ADMIN', 'RECEPCIONISTA'] },
   { label: 'Cupones', href: '/admin/coupons', icon: Tag, roles: ['ADMIN'] },
   { label: 'Políticas', href: '/admin/policies', icon: FileText, roles: ['ADMIN'] },
-  { label: 'Reportes', href: '/admin/reports/reservations', icon: BarChart3 },
+  { label: 'Reportes', href: '/admin/reports/reservations', icon: BarChart3, roles: ['ADMIN', 'RECEPCIONISTA'] },
 ];
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, isLoading, logout } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   if (isLoading) return null;
 
   if (!user) {
-    router.replace('/login?redirect=' + encodeURIComponent(pathname));
+    window.location.href = '/login?redirect=' + encodeURIComponent(pathname);
     return null;
   }
 
