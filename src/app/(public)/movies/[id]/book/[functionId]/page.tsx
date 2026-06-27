@@ -12,7 +12,7 @@ import { getMockFuncionById, getMockSeatsForFuncion, MOCK_USERS, MOCK_FUNCIONES 
 import { authService } from '@/services/auth.service';
 import { Funcion } from '@/types';
 
-const STAFF_ROLES = ['ADMIN', 'SECRETARIO'];
+const STAFF_ROLES = ['ADMIN', 'RECEPCIONISTA'];
 const CLIENTES = MOCK_USERS.filter((u) => u.roleName === 'CLIENTE');
 
 interface Seat {
@@ -35,7 +35,7 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
   // Asiento no disponible (ocupado o en mantenimiento) que el usuario intentó seleccionar: dispara el modal de error.
   const [blockedSeat, setBlockedSeat] = useState<Seat | null>(null);
 
-  // Rol del usuario en sesión: ADMIN/SECRETARIO usan el flujo de staff (reservan para un cliente).
+  // Rol del usuario en sesión: ADMIN/RECEPCIONISTA usan el flujo de staff (reservan para un cliente).
   const [isStaff, setIsStaff] = useState(false);
   const [clienteId, setClienteId] = useState<number | null>(null);
 

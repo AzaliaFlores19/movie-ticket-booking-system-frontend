@@ -14,12 +14,18 @@ interface DashboardLayoutProps {
   children: ReactNode;
 }
 
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: 'Admin',
+  RECEPCIONISTA: 'Recepcionista',
+  CLIENTE: 'Cliente',
+};
+
 const NAV_ITEMS = [
-  { label: 'Películas', href: '/admin/movies', icon: Film },
-  { label: 'Funciones', href: '/admin/functions', icon: CalendarClock },
-  { label: 'Cines', href: '/admin/cinemas', icon: Building2 },
-  { label: 'Salas', href: '/admin/salas', icon: Monitor },
-  { label: 'Ciudades', href: '/admin/cities', icon: MapPin },
+  { label: 'Películas', href: '/admin/movies', icon: Film, roles: ['ADMIN'] },
+  { label: 'Funciones', href: '/admin/functions', icon: CalendarClock, roles: ['ADMIN'] },
+  { label: 'Cines', href: '/admin/cinemas', icon: Building2, roles: ['ADMIN'] },
+  { label: 'Salas', href: '/admin/salas', icon: Monitor, roles: ['ADMIN'] },
+  { label: 'Ciudades', href: '/admin/cities', icon: MapPin, roles: ['ADMIN'] },
   { label: 'Géneros', href: '/admin/genres', icon: Film, roles: ['ADMIN'] },
   { label: 'Idiomas', href: '/admin/languages', icon: Globe, roles: ['ADMIN'] },
   { label: 'Usuarios', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
@@ -131,7 +137,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-zinc-200 truncate">{user?.name}</p>
-                  <p className="text-[10px] text-zinc-500 font-medium tracking-wider uppercase mt-0.5">{user?.role}</p>
+                  <p className="text-[10px] text-zinc-500 font-medium tracking-wider uppercase mt-0.5">{user?.role ? (ROLE_LABEL[user.role] ?? user.role) : ''}</p>
                 </div>
                 <button
                   onClick={handleLogout}
