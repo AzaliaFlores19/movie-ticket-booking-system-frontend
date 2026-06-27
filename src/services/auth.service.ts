@@ -1,84 +1,139 @@
-import { MOCK_USERS } from '@/lib/mock-data';
+import axios from '@/lib/axios';
+
+const SESSION_KEY = 'movie_auth_session';
+
+function extractMessage(raw: unknown): string | null {
+  if (!raw) return null;
+  if (Array.isArray(raw)) return raw.join(', ');
+  if (typeof raw === 'string') return raw;
+  return null;
+}
+
+function setAuthCookies(token: string, role: string) {
+  const expires = new Date(Date.now() + 7 * 864e5).toUTCString();
+  document.cookie = `auth_token=${token};expires=${expires};path=/;SameSite=Strict`;
+  document.cookie = `auth_role=${role};expires=${expires};path=/;SameSite=Strict`;
+}
+
+function clearAuthCookies() {
+  const past = 'Thu, 01 Jan 1970 00:00:00 GMT';
+  document.cookie = `auth_token=;expires=${past};path=/;SameSite=Strict`;
+  document.cookie = `auth_role=;expires=${past};path=/;SameSite=Strict`;
+}
+
+// Tries multiple strategies to get the role name string from the backend.
+async function fetchRoleName(accessToken: string, idRol?: number): Promise<string> {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+
+  // 1. Try GET /auth/profile (JwtStrategy.validate returns { role: string })
+  try {
+    const { data } = await axios.get('/auth/profile', { headers });
+    const role = data.role ?? data.roles?.nombre ?? data.roleName;
+    if (role) return role;
+  } catch { /* continue */ }
+
+  // 2. Try GET /roles/:id if we know the numeric id
+  if (idRol) {
+    try {
+      const { data } = await axios.get(`/roles/${idRol}`, { headers });
+      const role = data.nombre ?? data.name ?? data.role;
+      if (role) return role;
+    } catch { /* continue */ }
+  }
+
+  return 'CLIENTE';
+}
+
+function buildSession(rawUser: any, access_token: string, role: string) {
+  return {
+    email: rawUser.email,
+    name: rawUser.nombre ?? rawUser.name,
+    role,
+    token: access_token,
+  };
+}
 
 export const authService = {
-
-
-  
   async login(email: string, password: string) {
-    // 1. Simular latencia de red de medio segundo
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const { data } = await axios.post('/auth/login', {
+        email,
+        password_hash: password,
+      });
 
-    // 2. Buscar al usuario ignorando mayúsculas/minúsculas
-    const user = MOCK_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase());
+      const access_token = data.access_token;
+      const rawUser = data.user;
+      const role = await fetchRoleName(access_token, rawUser?.id_rol);
+      const sessionData = buildSession(rawUser, access_token, role);
 
-    // 3. Validar de forma estricta contra la contraseña del mock
-    // Si el usuario no existe o la contraseña ingresada no coincide con su valor en MOCK_USERS
-    if (!user || user.password !== password) {
-      throw new Error('El correo electrónico o la contraseña son incorrectos');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+        setAuthCookies(access_token, role);
+      }
+      return sessionData;
+    } catch (apiError: any) {
+      const status = apiError?.response?.status;
+      const msg = extractMessage(apiError?.response?.data?.message);
+
+      throw new Error(msg || 'El correo electrónico o la contraseña son incorrectos');
     }
-
-    // 4. Mecanismo de persistencia nativo del cliente
-    // Guardamos los datos simulados en localStorage para que la app mantenga la sesión viva
-    const sessionData = {
-      email: user.email,
-      name: user.name,
-      role: user.roleName, // Guarda el rol dinámico ('ADMIN', 'SECRETARIO', 'CLIENTE')
-      token: `mock-jwt-token-for-${user.id}`,
-    };
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('movie_auth_session', JSON.stringify(sessionData));
-    }
-
-    // Retornamos el objeto para el componente Login
-    return sessionData;
   },
 
   async register(name: string, email: string, password: string) {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    
-    // Comprobar si el correo ya existe en tus mocks
-    const userExists = MOCK_USERS.some((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (userExists) {
-      throw new Error('Este correo electrónico ya está registrado.');
+    try {
+      const { data } = await axios.post('/auth/register', {
+        name,
+        email,
+        password,
+        roleId: 2,
+      });
+
+      const access_token = data.access_token;
+      if (access_token) {
+        const rawUser = data.user;
+        const role = await fetchRoleName(access_token, rawUser?.id_rol);
+        const sessionData = buildSession(rawUser, access_token, role);
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+          setAuthCookies(access_token, role);
+        }
+        return { success: true, autoLogin: true, sessionData };
+      }
+
+      return { success: true, autoLogin: false };
+    } catch (apiError: any) {
+      const status = apiError?.response?.status;
+      const msg = extractMessage(apiError?.response?.data?.message);
+
+      if (status === 409 || (msg && msg.toLowerCase().includes('ya esta'))) {
+        throw new Error('Este correo electrónico ya está registrado.');
+      }
+      throw new Error(msg || `Error al registrarse (${status}). Intenta de nuevo.`);
     }
-
-    // Simulación de insertar el nuevo usuario en el array
-    const newUser = {
-      id: MOCK_USERS.length + 1,
-      name,
-      email,
-      roleId: 3,
-      roleName: 'CLIENTE',
-      password, // Asignamos la contraseña para que luego pueda iniciar sesión
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-
-    MOCK_USERS.push(newUser);
-    return { success: true };
   },
 
   async forgotPassword(email: string) {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    
-    const userExists = MOCK_USERS.some((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (!userExists) {
-      throw new Error('No se encontró ninguna cuenta con ese correo electrónico.');
+    try {
+      await axios.post('/auth/forgot-password', { email });
+      return { success: true };
+    } catch (apiError: any) {
+      const status = apiError?.response?.status;
+      const msg = extractMessage(apiError?.response?.data?.message);
+      throw new Error(msg || 'No se pudo enviar el correo. Intenta de nuevo.');
     }
-
-    return { success: true };
   },
 
-  // Método utilitario extra por si necesitas cerrar sesión en tu app
   logout() {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('movie_auth_session');
+      localStorage.removeItem(SESSION_KEY);
+      clearAuthCookies();
     }
   },
 
   getCurrentUser() {
     if (typeof window === 'undefined') return null;
-    const session = localStorage.getItem('movie_auth_session');
+    const session = localStorage.getItem(SESSION_KEY);
     return session ? JSON.parse(session) : null;
-  }
+  },
 };

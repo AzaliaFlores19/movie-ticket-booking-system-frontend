@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Film, Mail, Loader2, User, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Film, Mail, Loader2, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { authService } from '@/services/auth.service';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 export default function RegisterPage() {
+  const { setUser } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
@@ -19,35 +21,38 @@ export default function RegisterPage() {
     e.preventDefault();
 
     if (!name.trim() || !email.trim() || !password.trim()) {
-      const msg = 'Por favor, rellena todos los campos requeridos.';
-      toast.error(msg);
+      toast.error('Por favor, rellena todos los campos requeridos.');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      const msg = 'Por favor, introduce un correo electrónico válido (ejemplo@dominio.com).';
-      toast.error(msg);
+      toast.error('Por favor, introduce un correo electrónico válido (ejemplo@dominio.com).');
       return;
     }
 
     if (password.length < 6) {
-      const msg = 'La contraseña debe tener al menos 6 caracteres.';
-      toast.error(msg);
+      toast.error('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
     setLoading(true);
 
     try {
-      await authService.register(name, email, password);
-      toast.success('¡Cuenta creada con éxito! Ya puedes iniciar sesión.');
-      setTimeout(() => {
+      const result = await authService.register(name, email, password);
+
+      if (result.autoLogin && result.sessionData) {
+        setUser(result.sessionData);
+        toast.success('¡Cuenta creada con éxito! Bienvenido.');
+        // Full reload so the middleware sees the new cookies
+        setTimeout(() => { window.location.href = '/'; }, 400);
+      } else {
+        toast.success('¡Cuenta creada con éxito! Ya puedes iniciar sesión.');
+        // router.push to avoid page reload (preserves in-memory mock state)
         router.push('/login');
-      }, 600);
+      }
     } catch (err: any) {
-      const errorMessage = err?.message || 'Hubo un error al intentar crear la cuenta. Inténtalo de nuevo.';
-      toast.error(errorMessage);
+      toast.error(err?.message || 'Hubo un error al intentar crear la cuenta. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }

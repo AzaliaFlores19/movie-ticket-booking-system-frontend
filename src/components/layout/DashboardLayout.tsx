@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, ReactNode, useEffect } from 'react';
+import { useState, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { authService } from '@/services/auth.service';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Users, Building2, Film, CalendarClock, Ticket,
   CreditCard, Tag, FileText, MapPin, Monitor, Globe, Shield,
@@ -32,33 +32,27 @@ const NAV_ITEMS = [
 ];
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [user, setUser] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoading, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    const currentUser = authService.getCurrentUser();
-    if (!currentUser) {
-      router.replace('/login?redirect=' + encodeURIComponent(pathname));
-    } else {
-      setUser(currentUser);
-      setIsLoading(false);
-    }
-  }, [router, pathname]);
-
   if (isLoading) return null;
+
+  if (!user) {
+    router.replace('/login?redirect=' + encodeURIComponent(pathname));
+    return null;
+  }
 
   const filteredItems = NAV_ITEMS.filter((item) => {
     if (!item.roles) return true;
-    return user && item.roles.includes(user.role);
+    return item.roles.includes(user.role);
   });
 
   const handleLogout = () => {
-    authService.logout();
-    router.push('/');
+    logout();
+    window.location.href = '/';
   };
 
   return (

@@ -1,15 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { authService } from '@/services/auth.service';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Film, Menu, X, Ticket, User, LogOut,
-  ChevronDown, CalendarClock, Building2,
+  ChevronDown, CalendarClock,
   LayoutDashboard,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { toast } from 'sonner';
+import { usePathname } from 'next/navigation';
 
 const NAV_LINKS = [
   { label: 'Películas', href: '/', icon: Film },
@@ -17,27 +16,22 @@ const NAV_LINKS = [
 ];
 
 export default function Navbar() {
-  const [user, setUser] = useState<any>(null);
-  const router = useRouter();
+  const { user, logout } = useAuth();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    setUser(authService.getCurrentUser());
-    
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [pathname]);
+  }, []);
 
   const handleLogout = () => {
-    authService.logout();
-    setUser(null);
-    toast.success('Sesión cerrada correctamente');
-    router.push('/');
+    logout();
     setUserMenuOpen(false);
+    window.location.href = '/';
   };
 
   const isActive = (href: string) =>

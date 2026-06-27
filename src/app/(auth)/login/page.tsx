@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Film, Mail, Lock, Loader2, Eye, EyeOff, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Film, Mail, Lock, Loader2, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { authService } from '@/services/auth.service';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 
 export default function LoginPage() {
+  const { setUser } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,27 +18,32 @@ export default function LoginPage() {
     e.preventDefault();
 
     if (!email || !password) {
-      const errorMsg = 'Por favor, rellena todos los campos';
-      toast.error(errorMsg);
+      toast.error('Por favor, rellena todos los campos');
       return;
     }
 
     setLoading(true);
 
     try {
-      await authService.login(email, password);
+      const sessionData = await authService.login(email, password);
+      setUser(sessionData);
       toast.success('¡Bienvenido de nuevo!');
 
       const params = new URLSearchParams(window.location.search);
-      const redirect = params.get('redirect') || '/';
+      const redirect = params.get('redirect');
 
       setTimeout(() => {
-        window.location.href = redirect;
+        if (redirect) {
+          window.location.href = redirect;
+        } else if (sessionData.role === 'ADMIN' || sessionData.role === 'SECRETARIO') {
+          window.location.href = '/admin';
+        } else {
+          window.location.href = '/';
+        }
       }, 400);
 
     } catch (err: any) {
-      const errorMessage = err?.message || 'Contraseña o correo electrónico incorrectos';
-      toast.error(errorMessage);
+      toast.error(err?.message || 'Contraseña o correo electrónico incorrectos');
     } finally {
       setLoading(false);
     }
