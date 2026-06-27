@@ -43,7 +43,7 @@ export const usersService = {
   },
 
   async create(payload: CreateUserPayload): Promise<User> {
-    const { data } = await axios.post<{ message: string; user: ApiUser }>('/users', payload);
+    const { data } = await axios.post<{ message: string; user: ApiUser }>('/admin/users', payload);
     return mapUser(data.user);
   },
 };
