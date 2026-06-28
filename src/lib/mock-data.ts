@@ -16,10 +16,11 @@ export const PEXELS_POSTERS = [
   'https://images.pexels.com/photos/7722600/pexels-photo-7722600.jpeg?auto=compress&cs=tinysrgb&w=400&h=600&fit=crop',
 ];
 
+// IDs alineados con la BD (prisma/seed.ts): ADMIN=1, CLIENTE=2, RECEPCIONISTA=3
 export const MOCK_ROLES: Role[] = [
   { id: 1, name: 'ADMIN'},
-  { id: 2, name: 'RECEPCIONISTA' },
-  { id: 3, name: 'CLIENTE' },
+  { id: 2, name: 'CLIENTE' },
+  { id: 3, name: 'RECEPCIONISTA' },
 ];
 
 // Agrega de manera segura la propiedad password para el entorno mock

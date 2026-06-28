@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { Search, Plus, Pencil, Users, X, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { MOCK_ROLES } from '@/lib/mock-data';
 import { usersService } from '@/services/users.service';
-import type { User } from '@/types';
+import { rolesService } from '@/services/roles.service';
+import { useAuth } from '@/contexts/AuthContext';
+import type { User, Role } from '@/types';
 
 const PER_PAGE = 10;
 
@@ -37,21 +38,34 @@ function Field({ label, required, children }: { label: string; required?: boolea
 const inputCls = "w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/60";
 
 export default function UsersAdminPage() {
+  const { user: authUser } = useAuth();
+  const isReceptionist = authUser?.role === 'RECEPCIONISTA';
+
   const [users, setUsers] = useState<UserWithPassword[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
   const [activeIds, setActiveIds] = useState<Set<number>>(() => new Set());
 
+  const clienteRole = roles.find((r) => r.name === 'CLIENTE');
+
   useEffect(() => {
     loadUsers();
+  }, [isReceptionist]);
+
+  useEffect(() => {
+    rolesService.getAll().then(setRoles).catch(() => setRoles([]));
   }, []);
 
   async function loadUsers() {
     try {
       setLoading(true);
-      const data = await usersService.getAll();
+      // La recepcionista solo obtiene clientes; el admin obtiene todos los usuarios.
+      const data = isReceptionist
+        ? await usersService.getClients()
+        : await usersService.getAll();
       setUsers(data);
       setActiveIds(new Set(data.map((u) => u.id)));
     } catch (error) {
@@ -89,12 +103,14 @@ export default function UsersAdminPage() {
 
   async function handleCreateSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Una recepcionista solo puede crear clientes
+    const roleId = isReceptionist && clienteRole ? clienteRole.id : Number(createForm.roleId);
     try {
       const newUser = await usersService.create({
         name: createForm.name,
         email: createForm.email,
         password: createForm.password,
-        roleId: Number(createForm.roleId),
+        roleId,
       });
       setUsers((prev) => [newUser, ...prev]);
       setActiveIds((prev) => new Set([...prev, newUser.id]));
@@ -111,7 +127,7 @@ export default function UsersAdminPage() {
   function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!editingUser) return;
-    const role = MOCK_ROLES.find((r) => r.id === Number(editForm.roleId));
+    const role = roles.find((r) => r.id === Number(editForm.roleId));
     setUsers((prev) =>
       prev.map((u) =>
         u.id === editingUser.id
@@ -137,11 +153,17 @@ export default function UsersAdminPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Usuarios</h1>
-          <p className="text-sm text-zinc-400 mt-1">Gestionar cuentas de usuario</p>
+          <h1 className="text-2xl font-bold text-white">{isReceptionist ? 'Clientes' : 'Usuarios'}</h1>
+          <p className="text-sm text-zinc-400 mt-1">{isReceptionist ? 'Gestionar cuentas de clientes' : 'Gestionar cuentas de usuario'}</p>
         </div>
         <button
-          onClick={() => setShowCreate(true)}
+          onClick={() => {
+            setCreateForm({
+              ...EMPTY_CREATE,
+              roleId: isReceptionist && clienteRole ? String(clienteRole.id) : '',
+            });
+            setShowCreate(true);
+          }}
           className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -302,12 +324,16 @@ export default function UsersAdminPage() {
               <Field label="Rol" required>
                 <select
                   required
+                  disabled={isReceptionist}
                   value={createForm.roleId}
                   onChange={(e) => setCreateForm({ ...createForm, roleId: e.target.value })}
-                  className={inputCls}
+                  className={`${inputCls} disabled:opacity-60 disabled:cursor-not-allowed`}
                 >
                   <option value="">Seleccionar rol</option>
-                  {MOCK_ROLES.map((r) => (
+                  {(isReceptionist
+                    ? roles.filter((r) => r.name === 'CLIENTE')
+                    : roles
+                  ).map((r) => (
                     <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
                 </select>
@@ -367,7 +393,7 @@ export default function UsersAdminPage() {
                   className={inputCls}
                 >
                   <option value="">Seleccionar rol</option>
-                  {MOCK_ROLES.map((r) => (
+                  {roles.map((r) => (
                     <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
                 </select>

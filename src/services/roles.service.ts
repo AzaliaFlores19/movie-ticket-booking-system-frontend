@@ -2,12 +2,19 @@ import axios from '@/lib/axios';
 import { MOCK_ROLES } from '@/lib/mock-data';
 import { Role } from '@/types';
 
+interface ApiRole {
+  id: number;
+  nombre: string;
+}
+
 export const rolesService = {
   async getAll(): Promise<Role[]> {
     try {
-      const { data } = await axios.get('/roles');
-      return data;
+      // El backend devuelve un arreglo de { id, nombre }
+      const { data } = await axios.get<ApiRole[]>('/roles');
+      return data.map((r) => ({ id: r.id, name: r.nombre }));
     } catch (error) {
+      // Fallback (p. ej. si el rol actual no tiene acceso a GET /roles)
       return MOCK_ROLES;
     }
   },
