@@ -1,16 +1,37 @@
 import axios from '@/lib/axios';
-import { MOCK_CITIES } from '@/lib/mock-data';
+import { City, CityFilters } from '@/types';
 
-export interface Ciudad {
-  id: number;
-  nombre: string;
+type CityPayload = { nombre: string };
+
+// El backend devuelve { id, nombre, created_at }. Normalizamos al shape `City` del frontend.
+function normalizeCity(raw: any): City {
+  return {
+    id: Number(raw.id),
+    nombre: raw.nombre,
+    createdAt: raw.created_at ?? raw.createdAt,
+  };
 }
 
-// Función para obtener datos reales del backend
-export const getCiudades = async (): Promise<Ciudad[]> => {
-  const { data } = await axios.get('/ciudades');
-  return data;
-};
+function unwrap<T>(payload: any): T {
+  return payload && typeof payload === 'object' && 'data' in payload ? payload.data : payload;
+}
+
+export const citiesService = {
+  async getAll(filters?: CityFilters): Promise<City[]> {
+      const { data } = await axios.get('/ciudades', { params: filters });
+      const list = unwrap<any[]>(data) ?? [];
+      return list.map(normalizeCity);
+  },
+
+  async create(payload: CityPayload): Promise<City> {
+    const { data } = await axios.post('/ciudades', payload);
+    return normalizeCity(unwrap(data));
+  },
+
+  async update(id: number, payload: CityPayload): Promise<City> {
+    const { data } = await axios.patch(`/ciudades/${id}`, payload);
+    return normalizeCity(unwrap(data));
+  },
 
 // Objeto para compatibilidad con componentes que usan el mock
 // Usamos Promise.resolve para asegurar que los métodos then/catch funcionen
