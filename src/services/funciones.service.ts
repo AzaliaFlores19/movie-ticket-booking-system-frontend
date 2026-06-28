@@ -1,5 +1,5 @@
 import axios from '@/lib/axios';
-import { CreateFuncionDto } from '../types'; // Asumiendo que moveremos/crearemos tipos aquí
+//import { CreateFuncionDto } from '../types'; // Asumiendo que moveremos/crearemos tipos aquí
 
 export const funcionesService = {
   async getAll() {

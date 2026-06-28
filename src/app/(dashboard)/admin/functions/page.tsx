@@ -1,14 +1,14 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { CalendarClock, Clock, Film, Pencil, Plus, Search, TicketX, X } from 'lucide-react';
+import { CalendarClock, Clock, Film, Pencil, Plus, Search, TicketX, X, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { SeatMap } from '@/components/seats/SeatMap';
 import { funcionesService } from '@/services/funciones.service';
 import { moviesService } from '@/services/movies.service';
 import { salasService } from '@/services/salas.service';
-import type { AsientoFuncion, Funcion, Movie, Sala } from '@/types';
+import type { Funcion, Movie, Sala } from '@/types';
 
+const PER_PAGE = 10;
 const inputCls = 'w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/60 [color-scheme:dark]';
 
 const EMPTY_FORM = {
@@ -45,8 +45,6 @@ function toDateTimeLocal(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   
-  // Use UTC methods to extract date/time components. 
-  // Since the backend sends UTC ISO strings, this prevents browser local timezone shifting.
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
@@ -60,8 +58,6 @@ function toFormValues(funcion: Funcion): FunctionForm {
 }
 
 function FunctionFormFields({ form, onChange, movies, rooms }: { form: FunctionForm; onChange: (form: FunctionForm) => void; movies: Movie[]; rooms: Sala[] }) {
-  const selectedRoom = rooms.find((room) => room.id === Number(form.sala_id));
-  
   return (
     <>
       <div>
@@ -105,22 +101,27 @@ export default function FunctionsAdminPage() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [rooms, setRooms] = useState<Sala[]>([]);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editingFunction, setEditingFunction] = useState<Funcion | null>(null);
   const [form, setForm] = useState<FunctionForm>(EMPTY_FORM);
   const [cancelTarget, setCancelTarget] = useState<Funcion | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadFunctions();
     loadReferences();
+    loadFunctions();
   }, []);
 
   async function loadFunctions() {
+    setLoading(true);
     try {
       const data = await funcionesService.getAll();
       setFunctions(data);
     } catch {
       toast.error('Error al cargar funciones');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -150,6 +151,9 @@ export default function FunctionsAdminPage() {
     });
   }, [functions, search]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredFunctions.length / PER_PAGE));
+  const paginated = filteredFunctions.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
   function openCreate() {
     setEditingFunction(null);
     setForm(EMPTY_FORM);
@@ -164,8 +168,7 @@ export default function FunctionsAdminPage() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    // Parse YYYY-MM-DDThh:mm string
+    
     const [datePart, timePart] = form.fecha_hora.split('T');
     if (!datePart || !timePart) {
       toast.error('Formato de fecha inválido.');
@@ -175,7 +178,6 @@ export default function FunctionsAdminPage() {
     const [year, month, day] = datePart.split('-').map(Number);
     const [hours, minutes] = timePart.split(':').map(Number);
     
-    // Construct UTC Date directly
     const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes));
 
     if (utcDate <= new Date()) {
@@ -243,7 +245,7 @@ export default function FunctionsAdminPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); setPage(1); }}
               placeholder="Buscar funciones..."
               className="w-full pl-9 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/50"
             />
@@ -251,68 +253,95 @@ export default function FunctionsAdminPage() {
           <span className="text-xs text-zinc-500">{filteredFunctions.length} funcion{filteredFunctions.length !== 1 ? 'es' : ''}</span>
         </div>
 
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800/60">
-              {['Pelicula', 'Fecha', 'Cine', 'Sala', 'Estado', ''].map((column) => (
-                <th key={column} className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                  {column}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800/40">
-            {filteredFunctions.map((funcion) => {
-              return (
-                <tr key={funcion.id} className="hover:bg-zinc-900/50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-red-600/20 border border-red-500/20 flex items-center justify-center overflow-hidden">
-                        <div className="h-full w-full flex items-center justify-center bg-zinc-800">
-                          {funcion.peliculas?.poster_url && (
-                            <img 
-                              src={funcion.peliculas.poster_url} 
-                              alt={funcion.peliculas.titulo} 
-                              className="h-full w-full object-cover"
-                            />
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="font-medium text-zinc-100">{funcion.peliculas?.titulo ?? 'Pelicula sin titulo'}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-400">
-                    <div className="flex flex-col gap-1">
-                      <span className="flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5 text-zinc-600" />{formatFunctionDate(funcion.fecha_hora)}</span>
-                      <span className="flex items-center gap-1.5 text-xs"><Clock className="w-3.5 h-3.5 text-zinc-600" />{formatFunctionTime(funcion.fecha_hora)}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-400">{funcion.salas?.cines?.nombre ?? '-'}</td>
-                  <td className="px-4 py-3 text-zinc-400">{funcion.salas?.nombre ?? '-'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass(funcion.estado)}`}>
-                      {funcion.estado}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <button type="button" onClick={() => openEdit(funcion)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors" title="Editar funcion">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button type="button" onClick={() => setCancelTarget(funcion)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-600/20 hover:text-red-300 transition-colors" title="Cancelar funcion">
-                        <TicketX className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+        {loading ? (
+            <div className="flex justify-center py-16">
+                <Loader2 className="w-8 h-8 text-red-500 animate-spin" />
+            </div>
+        ) : (
+            <table className="w-full text-sm">
+            <thead>
+                <tr className="border-b border-zinc-800/60">
+                {['Pelicula', 'Fecha', 'Cine', 'Sala', 'Estado', ''].map((column) => (
+                    <th key={column} className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    {column}
+                    </th>
+                ))}
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/40">
+                {paginated.length === 0 ? (
+                <tr>
+                    <td colSpan={6} className="text-center py-10 text-zinc-500">No se encontraron funciones</td>
+                </tr>
+                ) : (
+                paginated.map((funcion) => (
+                    <tr key={funcion.id} className="hover:bg-zinc-900/50 transition-colors">
+                    <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-red-600/20 border border-red-500/20 flex items-center justify-center overflow-hidden">
+                            <div className="h-full w-full flex items-center justify-center bg-zinc-800">
+                            {funcion.peliculas?.poster_url && (
+                                <img src={funcion.peliculas.poster_url} alt={funcion.peliculas.titulo} className="h-full w-full object-cover" />
+                            )}
+                            </div>
+                        </div>
+                        <p className="font-medium text-zinc-100">{funcion.peliculas?.titulo ?? 'Pelicula sin titulo'}</p>
+                        </div>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-400">
+                        <div className="flex flex-col gap-1">
+                        <span className="flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5 text-zinc-600" />{formatFunctionDate(funcion.fecha_hora)}</span>
+                        <span className="flex items-center gap-1.5 text-xs"><Clock className="w-3.5 h-3.5 text-zinc-600" />{formatFunctionTime(funcion.fecha_hora)}</span>
+                        </div>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-400">{funcion.salas?.cines?.nombre ?? '-'}</td>
+                    <td className="px-4 py-3 text-zinc-400">{funcion.salas?.nombre ?? '-'}</td>
+                    <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass(funcion.estado)}`}>
+                        {funcion.estado}
+                        </span>
+                    </td>
+                    <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1">
+                        <button type="button" onClick={() => openEdit(funcion)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors" title="Editar funcion">
+                            <Pencil className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => setCancelTarget(funcion)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-600/20 hover:text-red-300 transition-colors" title="Cancelar funcion">
+                            <TicketX className="w-4 h-4" />
+                        </button>
+                        </div>
+                    </td>
+                    </tr>
+                ))
+                )}
+            </tbody>
+            </table>
+        )}
       </div>
 
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-1 px-4 py-4 border-t border-zinc-800/60 bg-zinc-950 rounded-b-2xl">
+          {[
+            { label: '«', target: 1 },
+            { label: '‹', target: page - 1 },
+            { label: String(page), target: page, active: true },
+            { label: '›', target: page + 1 },
+            { label: '»', target: totalPages },
+          ].map(({ label, target, active }) => (
+            <button
+              key={label}
+              onClick={() => setPage(Math.max(1, Math.min(totalPages, target)))}
+              disabled={target < 1 || target > totalPages || target === page}
+              className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                active ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto scrollbar-hide">
@@ -323,7 +352,7 @@ export default function FunctionsAdminPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-              <FunctionFormFields form={form} onChange={setForm} movies={movies} rooms={rooms} isEditing={!!editingFunction} />
+              <FunctionFormFields form={form} onChange={setForm} movies={movies} rooms={rooms} />
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setFormOpen(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors">
                   Cancelar

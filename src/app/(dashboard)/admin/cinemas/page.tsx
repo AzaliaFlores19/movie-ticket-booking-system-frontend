@@ -141,57 +141,83 @@ export default function CinemasAdminPage() {
             <Loader2 className="w-8 h-8 text-red-500 animate-spin" />
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-800/60">
-                {['Nombre', 'Dirección', 'Ciudad', ''].map((col) => (
-                  <th key={col} className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/40">
-              {paginated.length === 0 ? (
-                <tr>
-                  <td colSpan={4}>
-                    <div className="flex flex-col items-center justify-center py-16 gap-3">
-                      <Building2 className="w-10 h-10 text-zinc-700" />
-                      <p className="text-sm text-zinc-500">No se encontraron cines</p>
-                    </div>
-                  </td>
+          <>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-800/60">
+                  {['Nombre', 'Dirección', 'Ciudad', ''].map((col) => (
+                    <th key={col} className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                      {col}
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                paginated.map((cine) => (
-                  <tr key={cine.id} className="hover:bg-zinc-900/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-red-600/20 border border-red-500/20 flex items-center justify-center shrink-0">
-                          <Building2 className="w-4 h-4 text-red-400" />
-                        </div>
-                        <span className="font-medium text-zinc-100">{cine.nombre}</span>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/40">
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={4}>
+                      <div className="flex flex-col items-center justify-center py-16 gap-3">
+                        <Building2 className="w-10 h-10 text-zinc-700" />
+                        <p className="text-sm text-zinc-500">No se encontraron cines</p>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-zinc-400">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
-                        {cine.direccion ?? '—'}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-zinc-400">{cine.ciudades?.nombre ?? '—'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => openEdit(cine)}
-                        className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  paginated.map((cine) => (
+                    <tr key={cine.id} className="hover:bg-zinc-900/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-red-600/20 border border-red-500/20 flex items-center justify-center shrink-0">
+                            <Building2 className="w-4 h-4 text-red-400" />
+                          </div>
+                          <span className="font-medium text-zinc-100">{cine.nombre}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-zinc-400">
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
+                          {cine.direccion ?? '—'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-zinc-400">{cine.ciudades?.nombre ?? '—'}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => openEdit(cine)}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+
+            {/* Componente de paginación acoplado correctamente */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-1 px-4 py-4 border-t border-zinc-800/60 bg-zinc-950 rounded-b-2xl">
+                {[
+                  { label: '«', target: 1 },
+                  { label: '‹', target: page - 1 },
+                  { label: String(page), target: page, active: true },
+                  { label: '›', target: page + 1 },
+                  { label: '»', target: totalPages },
+                ].map(({ label, target, active }) => (
+                  <button
+                    key={label}
+                    onClick={() => setPage(Math.max(1, Math.min(totalPages, target)))}
+                    disabled={target < 1 || target > totalPages || (!active && target === page)}
+                    className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                      active ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
