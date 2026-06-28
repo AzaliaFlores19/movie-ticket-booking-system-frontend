@@ -108,8 +108,31 @@ export interface AsientoFuncion {
   asiento: Asiento;
 }
 
+export interface ReservaFuncion {
+  id: number;
+  fecha_hora: string;
+  estado?: string;
+  precio?: number;
+  peliculas?: { id?: number; titulo?: string; poster_url?: string };
+  salas?: { nombre?: string; cines?: { nombre?: string } };
+}
+
+export interface ReservaAsiento {
+  id: number;
+  asientosfuncion?: {
+    asientos?: { id?: number; codigo?: string; fila?: string; columna?: number };
+  };
+}
+
 export interface Reservation {
   id: number;
+  // API field names
+  numero_reserva?: string;
+  id_usuario?: number;
+  id_funcion?: number;
+  funciones?: ReservaFuncion;
+  reservaAsientos?: ReservaAsiento[];
+  // Legacy field names (mock / older integration)
   codigo?: string;
   estado: string;
   total?: number;
@@ -153,7 +176,9 @@ export interface Coupon {
   valor: number;
   fecha_inicio?: string;
   fecha_fin?: string;
+  fecha_expiracion?: string;
   usos_maximo?: number;
+  usos_maximos?: number;
   usos_actuales?: number;
   activo?: boolean;
   createdAt?: string;
@@ -162,13 +187,9 @@ export interface Coupon {
 
 export interface CancellationPolicy {
   id: number;
-  nombre: string;
-  descripcion?: string;
-  horas_limite: number;
+  horas_antes_minimo: number;
+  horas_antes_maximo?: number | null;
   porcentaje_reembolso: number;
-  activo?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 export interface ReportFilters {

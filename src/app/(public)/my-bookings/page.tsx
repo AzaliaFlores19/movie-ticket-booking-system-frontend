@@ -12,8 +12,8 @@ import {
 import MainLayout from '@/components/layout/MainLayout';
 import { reservationsService } from '@/services/reservations.service';
 import { refundsService } from '@/services/refunds.service';
-import { Reservation, Refund } from '@/types';
-import { MOCK_POLICIES } from '@/lib/mock-data';
+import { policiesApi } from '@/services/policies.service';
+import { Reservation, Refund, CancellationPolicy } from '@/types';
 
 type TabKey = 'proximas' | 'pasadas' | 'todas';
 
@@ -47,7 +47,31 @@ function refundStatusStyle(estado: string) {
   return REFUND_STATUS_STYLES[estado] ?? 'bg-zinc-600/20 text-zinc-400 border-zinc-500/30';
 }
 
+function getMovieTitle(r: Reservation) {
+  return r.funciones?.peliculas?.titulo ?? r.funcion?.pelicula?.titulo;
+}
+function getPosterUrl(r: Reservation) {
+  return r.funciones?.peliculas?.poster_url ?? r.funcion?.pelicula?.poster_url;
+}
+function getFechaHora(r: Reservation) {
+  return r.funciones?.fecha_hora ?? r.funcion?.fecha_hora;
+}
+function getCineName(r: Reservation) {
+  return r.funciones?.salas?.cines?.nombre ?? r.funcion?.cine?.nombre;
+}
+function getSalaName(r: Reservation) {
+  return r.funciones?.salas?.nombre ?? r.funcion?.sala?.nombre;
+}
+function getCodigo(r: Reservation) {
+  return r.numero_reserva ?? r.codigo ?? `#${r.id}`;
+}
 function seatLabels(r: Reservation) {
+  if (r.reservaAsientos?.length) {
+    return r.reservaAsientos
+      .map((a) => a.asientosfuncion?.asientos?.codigo ?? `${a.asientosfuncion?.asientos?.fila ?? ''}${a.asientosfuncion?.asientos?.columna ?? ''}`)
+      .filter(Boolean)
+      .sort();
+  }
   return (r.asientos ?? [])
     .map((a) => `${a.asiento.fila}${a.asiento.columna}`)
     .sort();
@@ -61,13 +85,12 @@ function formatDate(dateStr: string) {
 export default function MyBookingsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [refunds, setRefunds] = useState<Refund[]>([]);
+  const [policies, setPolicies] = useState<CancellationPolicy[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>('proximas');
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [cancelStep, setCancelStep] = useState<1 | 2>(1);
   const [cancelling, setCancelling] = useState(false);
-
-  const activePolicy = MOCK_POLICIES.find((p) => p.activo) ?? null;
 
   useEffect(() => {
     let active = true;
@@ -80,10 +103,13 @@ export default function MyBookingsPage() {
       .getMine()
       .then((data) => { if (active) setRefunds(data); })
       .catch(() => { if (active) setRefunds([]); });
+    policiesApi
+      .getAll()
+      .then((data) => { if (active) setPolicies(data); })
+      .catch(() => {});
     return () => { active = false; };
   }, []);
 
-  // Reembolso por id de pago, para mostrar su estado en cada reserva.
   const refundByPaymentId = useMemo(() => {
     const map = new Map<number, Refund>();
     for (const rf of refunds) {
@@ -96,12 +122,18 @@ export default function MyBookingsPage() {
 
   const cancelTarget = reservations.find((r) => r.id === cancelId) ?? null;
 
-  const horasRestantes = cancelTarget?.funcion?.fecha_hora
-    ? (new Date(cancelTarget.funcion.fecha_hora).getTime() - Date.now()) / (1000 * 60 * 60)
+  const horasRestantes = cancelTarget
+    ? (new Date(getFechaHora(cancelTarget) ?? 0).getTime() - Date.now()) / (1000 * 60 * 60)
     : 0;
-  const eligibleForRefund = activePolicy ? horasRestantes >= activePolicy.horas_limite : false;
-  const refundAmount = cancelTarget && activePolicy && eligibleForRefund
-    ? Math.round((cancelTarget.total * activePolicy.porcentaje_reembolso) / 100)
+
+  const activePolicy = policies.find((p) => {
+    if (horasRestantes < p.horas_antes_minimo) return false;
+    if (p.horas_antes_maximo != null && p.horas_antes_maximo > 0 && horasRestantes > p.horas_antes_maximo) return false;
+    return true;
+  }) ?? null;
+
+  const refundAmount = cancelTarget && activePolicy
+    ? Math.round((cancelTarget.total ?? 0) * activePolicy.porcentaje_reembolso / 100)
     : 0;
 
   function openCancelModal(id: number) {
@@ -138,12 +170,12 @@ export default function MyBookingsPage() {
   const filtered = useMemo(() => {
     const sorted = [...reservations].sort(
       (a, b) =>
-        new Date(b.funcion?.fecha_hora ?? 0).getTime() -
-        new Date(a.funcion?.fecha_hora ?? 0).getTime()
+        new Date(getFechaHora(b) ?? 0).getTime() -
+        new Date(getFechaHora(a) ?? 0).getTime()
     );
     if (tab === 'todas') return sorted;
     return sorted.filter((r) => {
-      const time = new Date(r.funcion?.fecha_hora ?? 0).getTime();
+      const time = new Date(getFechaHora(r) ?? 0).getTime();
       return tab === 'proximas' ? time >= now : time < now;
     });
   }, [reservations, tab, now]);
@@ -202,14 +234,15 @@ export default function MyBookingsPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             {filtered.map((r) => {
-              const fn = r.funcion;
+              const fechaHora = getFechaHora(r);
               const seats = seatLabels(r);
-              const upcoming = new Date(fn?.fecha_hora ?? 0).getTime() >= now;
+              const upcoming = new Date(fechaHora ?? 0).getTime() >= now;
               const canRefund = upcoming && r.estado !== 'CANCELADA';
               const refund = r.payment?.id != null ? refundByPaymentId.get(r.payment.id) : undefined;
               const refundProcessed = refund?.estado === 'PROCESADO';
-              // Si el reembolso ya se procesó, la reserva se muestra como REEMBOLSADA.
               const displayStatus = refundProcessed ? 'REEMBOLSADA' : r.estado;
+              const posterUrl = getPosterUrl(r);
+              const movieTitle = getMovieTitle(r);
 
               return (
                 <div
@@ -218,11 +251,11 @@ export default function MyBookingsPage() {
                 >
                   {/* Poster */}
                   <div className="w-24 sm:w-28 shrink-0 bg-zinc-800">
-                    {fn?.pelicula?.poster_url ? (
+                    {posterUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={fn.pelicula.poster_url}
-                        alt={fn.pelicula.titulo ?? ''}
+                        src={posterUrl}
+                        alt={movieTitle ?? ''}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -236,7 +269,7 @@ export default function MyBookingsPage() {
                   <div className="flex-1 p-4 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-semibold text-zinc-100 truncate">
-                        {fn?.pelicula?.titulo ?? 'Función'}
+                        {movieTitle ?? 'Función'}
                       </h3>
                       <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${statusStyle(displayStatus)}`}>
                         {displayStatus}
@@ -246,20 +279,20 @@ export default function MyBookingsPage() {
                     <div className="mt-3 space-y-1.5 text-xs text-zinc-400">
                       <p className="flex items-center gap-1.5">
                         <CalendarClock className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-                        {fn?.fecha_hora ? formatDate(fn.fecha_hora) : '—'}
-                        {fn?.fecha_hora && (
+                        {fechaHora ? formatDate(fechaHora) : '—'}
+                        {fechaHora && (
                           <>
                             <Clock className="w-3.5 h-3.5 text-red-500 shrink-0 ml-1" />
-                            {format(parseISO(fn.fecha_hora), 'h:mm a')}
+                            {format(parseISO(fechaHora), 'h:mm a')}
                           </>
                         )}
                       </p>
                       <p className="flex items-center gap-1.5 truncate">
                         <Building2 className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-                        {fn?.cine?.nombre ?? '—'}
+                        {getCineName(r) ?? '—'}
                         <span className="text-zinc-600">·</span>
                         <MapPin className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-                        {fn?.sala?.nombre ?? '—'}
+                        {getSalaName(r) ?? '—'}
                       </p>
                       <p className="flex items-center gap-1.5">
                         <Armchair className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
@@ -267,7 +300,7 @@ export default function MyBookingsPage() {
                       </p>
                       <p className="flex items-center gap-1.5">
                         <Hash className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-                        {r.codigo ?? `#${r.id}`}
+                        {getCodigo(r)}
                       </p>
                       {refund && (
                         <p className="flex items-center gap-1.5">
@@ -329,15 +362,17 @@ export default function MyBookingsPage() {
 
               {activePolicy ? (
                 <div className="bg-zinc-800/50 border border-zinc-700/60 rounded-xl p-4 space-y-3">
-                  <p className="text-sm font-semibold text-zinc-100">{activePolicy.nombre}</p>
-                  {activePolicy.descripcion && (
-                    <p className="text-xs text-zinc-400">{activePolicy.descripcion}</p>
-                  )}
-                  <div className="flex flex-wrap gap-2 pt-1">
+                  <div className="flex flex-wrap gap-2">
                     <span className="inline-flex items-center gap-1.5 text-xs bg-zinc-900 border border-zinc-700 rounded-full px-3 py-1">
-                      <span className="text-zinc-400">Hasta</span>
-                      <span className="font-bold text-zinc-100">{activePolicy.horas_limite}h</span>
-                      <span className="text-zinc-500">antes de la función</span>
+                      <span className="text-zinc-400">Desde</span>
+                      <span className="font-bold text-zinc-100">{activePolicy.horas_antes_minimo}h</span>
+                      {activePolicy.horas_antes_maximo ? (
+                        <>
+                          <span className="text-zinc-500">hasta</span>
+                          <span className="font-bold text-zinc-100">{activePolicy.horas_antes_maximo}h</span>
+                        </>
+                      ) : null}
+                      <span className="text-zinc-500">antes</span>
                     </span>
                     <span className="inline-flex items-center gap-1.5 text-xs bg-zinc-900 border border-zinc-700 rounded-full px-3 py-1">
                       <span className="text-zinc-400">Reembolso:</span>
@@ -349,13 +384,13 @@ export default function MyBookingsPage() {
                 </div>
               ) : (
                 <div className="bg-zinc-800/50 border border-zinc-700/60 rounded-xl p-4">
-                  <p className="text-xs text-zinc-400">No hay una política de cancelación activa. No se garantiza reembolso.</p>
+                  <p className="text-xs text-zinc-400">No aplica reembolso para esta cancelación según las políticas vigentes.</p>
                 </div>
               )}
 
               <p className="text-xs text-zinc-500">
-                Reserva <span className="text-zinc-300 font-medium">{cancelTarget.codigo ?? `#${cancelTarget.id}`}</span> ·{' '}
-                <span className="text-zinc-300 font-medium">{cancelTarget.funcion?.pelicula?.titulo ?? 'la función'}</span>
+                Reserva <span className="text-zinc-300 font-medium">{getCodigo(cancelTarget)}</span> ·{' '}
+                <span className="text-zinc-300 font-medium">{getMovieTitle(cancelTarget) ?? 'la función'}</span>
               </p>
 
               <div className="flex gap-3 pt-1">
@@ -399,7 +434,7 @@ export default function MyBookingsPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-400">% de reembolso</span>
-                  <span className="text-zinc-300">{eligibleForRefund && activePolicy ? activePolicy.porcentaje_reembolso : 0}%</span>
+                  <span className="text-zinc-300">{activePolicy ? activePolicy.porcentaje_reembolso : 0}%</span>
                 </div>
                 <div className="border-t border-zinc-700/60 pt-3 flex justify-between">
                   <span className="text-sm font-semibold text-zinc-200">Monto a reembolsar</span>

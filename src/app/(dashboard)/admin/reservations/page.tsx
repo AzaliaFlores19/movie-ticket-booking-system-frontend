@@ -37,7 +37,26 @@ function statusStyle(estado: string) {
   return STATUS_STYLES[estado] ?? 'bg-zinc-600/20 text-zinc-400 border-zinc-500/30';
 }
 
+function getMovieTitle(r: Reservation) {
+  return r.funciones?.peliculas?.titulo ?? r.funcion?.pelicula?.titulo;
+}
+function getFechaHora(r: Reservation) {
+  return r.funciones?.fecha_hora ?? r.funcion?.fecha_hora;
+}
+function getCineName(r: Reservation) {
+  return r.funciones?.salas?.cines?.nombre ?? r.funcion?.cine?.nombre;
+}
+function getCodigo(r: Reservation) {
+  return r.numero_reserva ?? r.codigo ?? `#${r.id}`;
+}
 function seatLabels(r: Reservation) {
+  if (r.reservaAsientos?.length) {
+    return r.reservaAsientos
+      .map((a) => a.asientosfuncion?.asientos?.codigo ?? `${a.asientosfuncion?.asientos?.fila ?? ''}${a.asientosfuncion?.asientos?.columna ?? ''}`)
+      .filter(Boolean)
+      .sort()
+      .join(', ');
+  }
   return (r.asientos ?? [])
     .map((a) => `${a.asiento.fila}${a.asiento.columna}`)
     .sort()
@@ -165,13 +184,13 @@ export default function ReservationsAdminPage() {
   const filteredReservations = useMemo(() => {
     const sorted = [...reservations].sort(
       (a, b) =>
-        new Date(b.funcion?.fecha_hora ?? 0).getTime() -
-        new Date(a.funcion?.fecha_hora ?? 0).getTime()
+        new Date(getFechaHora(b) ?? 0).getTime() -
+        new Date(getFechaHora(a) ?? 0).getTime()
     );
     return sorted.filter((r) => {
       if (rEstado && r.estado !== rEstado) return false;
       if (rSearch) {
-        const haystack = [r.codigo, r.usuario?.name, r.usuario?.email, r.funcion?.pelicula?.titulo]
+        const haystack = [getCodigo(r), r.usuario?.name, r.usuario?.email, getMovieTitle(r)]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
@@ -379,7 +398,7 @@ export default function ReservationsAdminPage() {
                     return (
                       <tr key={r.id} className="hover:bg-zinc-900/50 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs text-zinc-300">
-                          {r.codigo ?? `#${r.id}`}
+                          {getCodigo(r)}
                         </td>
                         <td className="px-4 py-3">
                           <span className="inline-flex items-center gap-1.5 text-zinc-100">
@@ -388,19 +407,19 @@ export default function ReservationsAdminPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 font-medium text-zinc-100">
-                          {r.funcion?.pelicula?.titulo ?? '—'}
+                          {getMovieTitle(r) ?? '—'}
                         </td>
                         <td className="px-4 py-3 text-zinc-400">
-                          {r.funcion?.fecha_hora ? (
+                          {getFechaHora(r) ? (
                             <span className="inline-flex flex-col">
-                              <span className="text-zinc-300">{formatDateLabel(r.funcion.fecha_hora)}</span>
+                              <span className="text-zinc-300">{formatDateLabel(getFechaHora(r)!)}</span>
                               <span className="inline-flex items-center gap-1 text-xs text-zinc-500">
                                 <Clock className="w-3 h-3 text-red-500 shrink-0" />
-                                {format(parseISO(r.funcion.fecha_hora), 'h:mm a')}
-                                {r.funcion.cine?.nombre && (
+                                {format(parseISO(getFechaHora(r)!), 'h:mm a')}
+                                {getCineName(r) && (
                                   <>
                                     <Building2 className="w-3 h-3 ml-1.5 shrink-0" />
-                                    {r.funcion.cine.nombre}
+                                    {getCineName(r)}
                                   </>
                                 )}
                               </span>
@@ -608,12 +627,12 @@ export default function ReservationsAdminPage() {
                 <h3 className="text-lg font-bold text-white">¿Cancelar reserva?</h3>
                 <p className="text-sm text-zinc-400 mt-1">
                   Se cancelará la reserva{' '}
-                  <span className="font-semibold text-zinc-200">{cancelTarget.codigo ?? `#${cancelTarget.id}`}</span>
+                  <span className="font-semibold text-zinc-200">{getCodigo(cancelTarget)}</span>
                   {cancelTarget.usuario?.name && (
                     <> de <span className="font-semibold text-zinc-200">{cancelTarget.usuario.name}</span></>
                   )}
                   {' '}para{' '}
-                  <span className="font-semibold text-zinc-200">{cancelTarget.funcion?.pelicula?.titulo ?? 'la función'}</span>.
+                  <span className="font-semibold text-zinc-200">{getMovieTitle(cancelTarget) ?? 'la función'}</span>.
                   Esta acción no se puede deshacer.
                 </p>
               </div>
