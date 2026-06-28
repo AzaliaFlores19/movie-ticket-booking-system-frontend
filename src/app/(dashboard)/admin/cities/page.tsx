@@ -8,6 +8,8 @@ import type { City } from '@/types';
 
 const inputCls = 'w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/60';
 
+const PER_PAGE = 10;
+
 function formatCreatedAt(value?: string) {
   return value ? value.split('T')[0] : '-';
 }
@@ -23,6 +25,7 @@ export default function CitiesAdminPage() {
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCity, setEditingCity] = useState<City | null>(null);
   const [deletingCity, setDeletingCity] = useState<City | null>(null);
@@ -50,6 +53,14 @@ export default function CitiesAdminPage() {
     if (!term) return cities;
     return cities.filter((city) => city.nombre.toLowerCase().includes(term));
   }, [cities, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCities.length / PER_PAGE));
+  const paginatedCities = filteredCities.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  // Si el filtro/los datos reducen el total por debajo de la página actual, vuelve a una página válida.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   function openCreate() {
     setEditingCity(null);
@@ -130,7 +141,7 @@ export default function CitiesAdminPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); setPage(1); }}
               placeholder="Buscar ciudades..."
               className="w-full pl-9 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/50"
             />
@@ -162,7 +173,7 @@ export default function CitiesAdminPage() {
                 </td>
               </tr>
             ) : (
-              filteredCities.map((city) => (
+              paginatedCities.map((city) => (
                 <tr key={city.id} className="hover:bg-zinc-900/50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -199,6 +210,29 @@ export default function CitiesAdminPage() {
             )}
           </tbody>
         </table>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1 px-4 py-4 border-t border-zinc-800/60">
+            {[
+              { label: '«', target: 1 },
+              { label: '‹', target: page - 1 },
+              { label: String(page), target: page, active: true },
+              { label: '›', target: page + 1 },
+              { label: '»', target: totalPages },
+            ].map(({ label, target, active }) => (
+              <button
+                key={label}
+                onClick={() => setPage(Math.max(1, Math.min(totalPages, target)))}
+                disabled={target < 1 || target > totalPages || target === page}
+                className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                  active ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {modalOpen && (
