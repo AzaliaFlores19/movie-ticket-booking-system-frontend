@@ -330,19 +330,25 @@ export default function UsersAdminPage() {
                   </td>
                   <td className="px-4 py-3 text-zinc-400">{user.email}</td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => toggleActive(user.id)}
-                      disabled={isSelf(user) || togglingId === user.id}
-                      title={isSelf(user) ? 'No puedes desactivar tu propia cuenta' : undefined}
-                      className="flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${activeIds.has(user.id) ? 'bg-green-500' : 'bg-zinc-600'}`}>
-                        <span className={`pointer-events-none inline-block h-4 w-4 m-0.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${activeIds.has(user.id) ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </span>
+                    {isReceptionist ? (
                       <span className={`text-xs font-medium ${activeIds.has(user.id) ? 'text-green-400' : 'text-zinc-500'}`}>
                         {activeIds.has(user.id) ? 'Activo' : 'Inactivo'}
                       </span>
-                    </button>
+                    ) : (
+                      <button
+                        onClick={() => toggleActive(user.id)}
+                        disabled={isSelf(user) || togglingId === user.id}
+                        title={isSelf(user) ? 'No puedes desactivar tu propia cuenta' : undefined}
+                        className="flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${activeIds.has(user.id) ? 'bg-green-500' : 'bg-zinc-600'}`}>
+                          <span className={`pointer-events-none inline-block h-4 w-4 m-0.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${activeIds.has(user.id) ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </span>
+                        <span className={`text-xs font-medium ${activeIds.has(user.id) ? 'text-green-400' : 'text-zinc-500'}`}>
+                          {activeIds.has(user.id) ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </button>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-zinc-400">{formatDate(user.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
@@ -361,14 +367,16 @@ export default function UsersAdminPage() {
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => setDeletingUser(user)}
-                        disabled={isSelf(user)}
-                        title={isSelf(user) ? 'No puedes eliminar tu propia cuenta' : 'Eliminar usuario'}
-                        className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-600/15 hover:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {!isReceptionist && (
+                        <button
+                          onClick={() => setDeletingUser(user)}
+                          disabled={isSelf(user)}
+                          title={isSelf(user) ? 'No puedes eliminar tu propia cuenta' : 'Eliminar usuario'}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-600/15 hover:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
