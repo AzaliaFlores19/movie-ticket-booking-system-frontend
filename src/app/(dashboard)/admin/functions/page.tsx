@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { CalendarClock, Clock, Film, Pencil, Plus, Search, TicketX, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { SeatMap } from '@/components/seats/SeatMap';
-import { MOCK_CINEMAS, MOCK_FUNCIONES, MOCK_MOVIES, MOCK_ROOMS, getMockSeatsForFuncion } from '@/lib/mock-data';
-import { functionsService } from '@/services/functions.service';
-import type { AsientoFuncion, Funcion } from '@/types';
+import { funcionesService } from '@/services/funciones.service';
+import { moviesService } from '@/services/movies.service';
+import { salasService } from '@/services/salas.service';
+import type { AsientoFuncion, Funcion, Movie, Sala } from '@/types';
 
 const inputCls = 'w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/60 [color-scheme:dark]';
 
@@ -14,7 +15,6 @@ const EMPTY_FORM = {
   pelicula_id: '',
   sala_id: '',
   fecha_hora: '',
-  estado: 'DISPONIBLE',
 };
 
 type FunctionForm = typeof EMPTY_FORM;
@@ -22,7 +22,7 @@ type FunctionForm = typeof EMPTY_FORM;
 function statusClass(status: string) {
   const normalized = status?.toUpperCase();
   if (normalized === 'DISPONIBLE' || normalized === 'PROGRAMADA') return 'bg-green-500/15 text-green-300 border-green-500/20';
-  if (normalized === 'CANCELADO') return 'bg-red-500/15 text-red-300 border-red-500/20';
+  if (normalized === 'CANCELADA') return 'bg-red-500/15 text-red-300 border-red-500/20';
   if (normalized === 'AGOTADO') return 'bg-amber-500/15 text-amber-300 border-amber-500/20';
   return 'bg-zinc-700/60 text-zinc-300 border-zinc-600';
 }
@@ -44,40 +44,24 @@ function toDateTimeLocal(value?: string) {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  
+  // Use UTC methods to extract date/time components. 
+  // Since the backend sends UTC ISO strings, this prevents browser local timezone shifting.
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
 function toFormValues(funcion: Funcion): FunctionForm {
   return {
-    pelicula_id: String(funcion.pelicula_id ?? funcion.pelicula?.id ?? ''),
-    sala_id: String(funcion.sala_id ?? funcion.sala?.id ?? ''),
+    pelicula_id: String(funcion.id_pelicula ?? ''),
+    sala_id: String(funcion.id_sala ?? ''),
     fecha_hora: toDateTimeLocal(funcion.fecha_hora),
-    estado: funcion.estado ?? 'DISPONIBLE',
   };
 }
 
-function buildFunctionFromForm(form: FunctionForm, base?: Funcion): Funcion {
-  const movie = MOCK_MOVIES.find((item) => item.id === Number(form.pelicula_id));
-  const room = MOCK_ROOMS.find((item) => item.id === Number(form.sala_id));
-  const cinema = MOCK_CINEMAS.find((item) => item.id === (room?.cine_id ?? room?.id_cine ?? room?.cines?.id));
-
-  return {
-    ...base,
-    id: base?.id ?? Date.now(),
-    pelicula_id: Number(form.pelicula_id),
-    pelicula: movie,
-    sala_id: Number(form.sala_id),
-    sala: room,
-    cine: cinema,
-    fecha_hora: new Date(form.fecha_hora).toISOString(),
-    estado: form.estado,
-  };
-}
-
-function FunctionFormFields({ form, onChange }: { form: FunctionForm; onChange: (form: FunctionForm) => void }) {
-  const selectedRoom = MOCK_ROOMS.find((room) => room.id === Number(form.sala_id));
-  const previewSeats = selectedRoom ? getMockSeatsForFuncion(selectedRoom.id) as AsientoFuncion[] : [];
-
+function FunctionFormFields({ form, onChange, movies, rooms }: { form: FunctionForm; onChange: (form: FunctionForm) => void; movies: Movie[]; rooms: Sala[] }) {
+  const selectedRoom = rooms.find((room) => room.id === Number(form.sala_id));
+  
   return (
     <>
       <div>
@@ -86,7 +70,7 @@ function FunctionFormFields({ form, onChange }: { form: FunctionForm; onChange: 
         </label>
         <select required value={form.pelicula_id} onChange={(event) => onChange({ ...form, pelicula_id: event.target.value })} className={inputCls}>
           <option value="">Seleccionar pelicula</option>
-          {MOCK_MOVIES.map((movie) => (
+          {movies.map((movie) => (
             <option key={movie.id} value={movie.id}>{movie.titulo}</option>
           ))}
         </select>
@@ -98,9 +82,9 @@ function FunctionFormFields({ form, onChange }: { form: FunctionForm; onChange: 
         </label>
         <select required value={form.sala_id} onChange={(event) => onChange({ ...form, sala_id: event.target.value })} className={inputCls}>
           <option value="">Seleccionar sala</option>
-          {MOCK_ROOMS.map((room) => (
+          {rooms.map((room) => (
             <option key={room.id} value={room.id}>
-              {room.nombre} - {room.cines?.nombre ?? room.cine?.nombre ?? 'Cine'}
+              {room.nombre} - {room.cines?.nombre ?? 'Cine'}
             </option>
           ))}
         </select>
@@ -112,44 +96,55 @@ function FunctionFormFields({ form, onChange }: { form: FunctionForm; onChange: 
         </label>
         <input required type="datetime-local" value={form.fecha_hora} onChange={(event) => onChange({ ...form, fecha_hora: event.target.value })} className={inputCls} />
       </div>
-
-      <div>
-        <label className="block text-sm font-medium text-zinc-300 mb-1">Estado</label>
-        <select value={form.estado} onChange={(event) => onChange({ ...form, estado: event.target.value })} className={inputCls}>
-          <option value="DISPONIBLE">Disponible</option>
-          <option value="PROGRAMADA">Programada</option>
-          <option value="AGOTADO">Agotado</option>
-          <option value="CANCELADO">Cancelado</option>
-        </select>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-sm font-medium text-zinc-300">Distribucion de asientos</label>
-          <span className="text-xs text-zinc-500">{selectedRoom ? `${selectedRoom.filas ?? 8} filas x ${selectedRoom.columnas ?? 10} columnas` : 'Seleccione una sala'}</span>
-        </div>
-        <SeatMap seats={previewSeats} readOnly compact />
-      </div>
     </>
   );
 }
 
 export default function FunctionsAdminPage() {
-  const [functions, setFunctions] = useState<Funcion[]>(MOCK_FUNCIONES);
+  const [functions, setFunctions] = useState<Funcion[]>([]);
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [rooms, setRooms] = useState<Sala[]>([]);
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editingFunction, setEditingFunction] = useState<Funcion | null>(null);
   const [form, setForm] = useState<FunctionForm>(EMPTY_FORM);
   const [cancelTarget, setCancelTarget] = useState<Funcion | null>(null);
 
+  useEffect(() => {
+    loadFunctions();
+    loadReferences();
+  }, []);
+
+  async function loadFunctions() {
+    try {
+      const data = await funcionesService.getAll();
+      setFunctions(data);
+    } catch {
+      toast.error('Error al cargar funciones');
+    }
+  }
+
+  async function loadReferences() {
+    try {
+      const [moviesData, roomsData] = await Promise.all([
+        moviesService.getAll(),
+        salasService.getAll()
+      ]);
+      setMovies(moviesData);
+      setRooms(roomsData);
+    } catch {
+      toast.error('Error al cargar catálogo de películas o salas');
+    }
+  }
+
   const filteredFunctions = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return functions;
     return functions.filter((funcion) => {
       return [
-        funcion.pelicula?.titulo,
-        funcion.cine?.nombre,
-        funcion.sala?.nombre,
+        funcion.peliculas?.titulo,
+        funcion.salas?.cines?.nombre,
+        funcion.salas?.nombre,
         funcion.estado,
       ].some((value) => value?.toLowerCase().includes(term));
     });
@@ -169,43 +164,60 @@ export default function FunctionsAdminPage() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const payload = buildFunctionFromForm(form, editingFunction ?? undefined);
 
-    if (editingFunction) {
-      setFunctions((prev) => prev.map((item) => (item.id === editingFunction.id ? payload : item)));
-      functionsService.update(editingFunction.id, {
-        pelicula_id: payload.pelicula_id,
-        sala_id: payload.sala_id,
-        fecha_hora: payload.fecha_hora,
-        estado: payload.estado,
-      }).catch(() => undefined);
-      toast.success('Funcion actualizada correctamente');
-    } else {
-      setFunctions((prev) => [payload, ...prev]);
-      functionsService.create({
-        pelicula_id: payload.pelicula_id,
-        sala_id: payload.sala_id,
-        fecha_hora: payload.fecha_hora,
-        estado: payload.estado,
-      }).catch(() => undefined);
-      toast.success('Funcion creada correctamente');
+    // Parse YYYY-MM-DDThh:mm string
+    const [datePart, timePart] = form.fecha_hora.split('T');
+    if (!datePart || !timePart) {
+      toast.error('Formato de fecha inválido.');
+      return;
+    }
+    
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minutes] = timePart.split(':').map(Number);
+    
+    // Construct UTC Date directly
+    const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes));
+
+    if (utcDate <= new Date()) {
+      toast.error('La fecha y hora de la función deben ser futuras.');
+      return;
     }
 
-    setFormOpen(false);
-    setEditingFunction(null);
-    setForm(EMPTY_FORM);
+    const payload = {
+      id_pelicula: Number(form.pelicula_id),
+      id_sala: Number(form.sala_id),
+      fecha_hora: utcDate.toISOString(),
+    };
+
+    try {
+      if (editingFunction) {
+        await funcionesService.update(editingFunction.id, payload);
+        toast.success('Funcion actualizada correctamente');
+      } else {
+        await funcionesService.create(payload);
+        toast.success('Funcion creada correctamente');
+      }
+      setFormOpen(false);
+      setEditingFunction(null);
+      setForm(EMPTY_FORM);
+      loadFunctions();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Error al guardar la funcion';
+      toast.error(msg);
+    }
   }
 
-  function confirmCancel() {
+  async function confirmCancel() {
     if (!cancelTarget) return;
-    setFunctions((prev) => prev.map((item) => (item.id === cancelTarget.id ? { ...item, estado: 'CANCELADO' } : item)));
-    functionsService.cancel(cancelTarget.id).catch(() => undefined);
-    setCancelTarget(null);
-    toast.info('Funcion cancelada. Se notificara a clientes afectados.');
-  }
-
-  function affectedCount(funcion: Funcion) {
-    return getMockSeatsForFuncion(funcion.id).filter((seat) => ['OCUPADO', 'RESERVADO'].includes(seat.estado)).length;
+    try {
+      await funcionesService.cancelar(cancelTarget.id);
+      toast.info('Funcion cancelada. Se notificara a clientes afectados.');
+      setCancelTarget(null);
+      loadFunctions();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Error al cancelar la funcion';
+      toast.error(msg);
+    }
   }
 
   return (
@@ -242,7 +254,7 @@ export default function FunctionsAdminPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800/60">
-              {['Pelicula', 'Fecha', 'Cine / sala', 'Estado', ''].map((column) => (
+              {['Pelicula', 'Fecha', 'Cine', 'Sala', 'Estado', ''].map((column) => (
                 <th key={column} className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                   {column}
                 </th>
@@ -255,12 +267,19 @@ export default function FunctionsAdminPage() {
                 <tr key={funcion.id} className="hover:bg-zinc-900/50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-red-600/20 border border-red-500/20 flex items-center justify-center">
-                        <Film className="h-4 w-4 text-red-400" />
+                      <div className="h-10 w-10 rounded-lg bg-red-600/20 border border-red-500/20 flex items-center justify-center overflow-hidden">
+                        <div className="h-full w-full flex items-center justify-center bg-zinc-800">
+                          {funcion.peliculas?.poster_url && (
+                            <img 
+                              src={funcion.peliculas.poster_url} 
+                              alt={funcion.peliculas.titulo} 
+                              className="h-full w-full object-cover"
+                            />
+                          )}
+                        </div>
                       </div>
                       <div>
-                        <p className="font-medium text-zinc-100">{funcion.pelicula?.titulo ?? 'Pelicula sin titulo'}</p>
-                        <p className="text-xs text-zinc-500">ID #{funcion.id}</p>
+                        <p className="font-medium text-zinc-100">{funcion.peliculas?.titulo ?? 'Pelicula sin titulo'}</p>
                       </div>
                     </div>
                   </td>
@@ -270,10 +289,8 @@ export default function FunctionsAdminPage() {
                       <span className="flex items-center gap-1.5 text-xs"><Clock className="w-3.5 h-3.5 text-zinc-600" />{formatFunctionTime(funcion.fecha_hora)}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-zinc-400">
-                    <p>{funcion.cine?.nombre ?? funcion.sala?.cines?.nombre ?? '-'}</p>
-                    <p className="text-xs text-zinc-500">{funcion.sala?.nombre ?? '-'}</p>
-                  </td>
+                  <td className="px-4 py-3 text-zinc-400">{funcion.salas?.cines?.nombre ?? '-'}</td>
+                  <td className="px-4 py-3 text-zinc-400">{funcion.salas?.nombre ?? '-'}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass(funcion.estado)}`}>
                       {funcion.estado}
@@ -306,7 +323,7 @@ export default function FunctionsAdminPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-              <FunctionFormFields form={form} onChange={setForm} />
+              <FunctionFormFields form={form} onChange={setForm} movies={movies} rooms={rooms} isEditing={!!editingFunction} />
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setFormOpen(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors">
                   Cancelar
@@ -337,9 +354,8 @@ export default function FunctionsAdminPage() {
             </div>
             <div className="px-6 py-5 space-y-4">
               <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
-                <p className="text-sm font-medium text-zinc-100">{cancelTarget.pelicula?.titulo}</p>
+                <p className="text-sm font-medium text-zinc-100">{cancelTarget.peliculas?.titulo}</p>
                 <p className="text-xs text-zinc-500 mt-1">{formatFunctionDateTime(cancelTarget.fecha_hora)}</p>
-                <p className="text-xs text-red-300 mt-3">{affectedCount(cancelTarget)} cliente/asiento posiblemente afectado.</p>
               </div>
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => setCancelTarget(null)} className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors">
