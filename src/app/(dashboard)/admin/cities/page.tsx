@@ -1,34 +1,66 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { MapPin, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { AlertCircle, MapPin, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { MOCK_CITIES } from '@/lib/mock-data';
 import { citiesService } from '@/services/cities.service';
 import type { City } from '@/types';
 
 const inputCls = 'w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/60';
 
+const PER_PAGE = 10;
+
 function formatCreatedAt(value?: string) {
   return value ? value.split('T')[0] : '-';
 }
 
+// Extrae el mensaje de error que envía el backend NestJS (`message` puede ser string o string[]).
+function getApiError(error: any, fallback: string) {
+  const message = error?.response?.data?.message;
+  if (Array.isArray(message)) return message[0] ?? fallback;
+  return typeof message === 'string' ? message : fallback;
+}
+
 export default function CitiesAdminPage() {
-  const [cities, setCities] = useState<City[]>(MOCK_CITIES);
+  const [cities, setCities] = useState<City[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCity, setEditingCity] = useState<City | null>(null);
+  const [deletingCity, setDeletingCity] = useState<City | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [name, setName] = useState('');
 
   useEffect(() => {
-    citiesService.getAll().then(setCities).catch(() => setCities(MOCK_CITIES));
+    loadCities();
   }, []);
+
+  async function loadCities() {
+    try {
+      setLoading(true);
+      const data = await citiesService.getAll();
+      setCities(data);
+    } catch {
+      toast.error('Error al cargar las ciudades');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const filteredCities = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return cities;
     return cities.filter((city) => city.nombre.toLowerCase().includes(term));
   }, [cities, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCities.length / PER_PAGE));
+  const paginatedCities = filteredCities.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  // Si el filtro/los datos reducen el total por debajo de la página actual, vuelve a una página válida.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   function openCreate() {
     setEditingCity(null);
@@ -51,27 +83,39 @@ export default function CitiesAdminPage() {
       return;
     }
 
-    if (editingCity) {
-      const updated = { ...editingCity, nombre: cleanName };
-      setCities((prev) => prev.map((city) => (city.id === editingCity.id ? updated : city)));
-      citiesService.update(editingCity.id, { nombre: cleanName }).catch(() => undefined);
-      toast.success('Ciudad actualizada correctamente');
-    } else {
-      const created: City = { id: Date.now(), nombre: cleanName, createdAt: new Date().toISOString() };
-      setCities((prev) => [created, ...prev]);
-      citiesService.create({ nombre: cleanName }).catch(() => undefined);
-      toast.success('Ciudad creada correctamente');
+    setSubmitting(true);
+    try {
+      if (editingCity) {
+        const updated = await citiesService.update(editingCity.id, { nombre: cleanName });
+        setCities((prev) => prev.map((city) => (city.id === editingCity.id ? updated : city)));
+        toast.success('Ciudad actualizada correctamente');
+      } else {
+        const created = await citiesService.create({ nombre: cleanName });
+        setCities((prev) => [created, ...prev]);
+        toast.success('Ciudad creada correctamente');
+      }
+      setModalOpen(false);
+      setName('');
+      setEditingCity(null);
+    } catch (error) {
+      toast.error(getApiError(error, 'No se pudo guardar la ciudad'));
+    } finally {
+      setSubmitting(false);
     }
-
-    setModalOpen(false);
-    setName('');
-    setEditingCity(null);
   }
 
-  function handleDelete(city: City) {
-    setCities((prev) => prev.filter((item) => item.id !== city.id));
-    citiesService.delete(city.id).catch(() => undefined);
-    toast.info('Ciudad eliminada de la vista');
+  async function handleDelete(city: City) {
+    setSubmitting(true);
+    try {
+      await citiesService.delete(city.id);
+      setCities((prev) => prev.filter((item) => item.id !== city.id));
+      setDeletingCity(null);
+      toast.success('Ciudad eliminada correctamente');
+    } catch (error) {
+      toast.error(getApiError(error, 'No se pudo eliminar la ciudad'));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -97,7 +141,7 @@ export default function CitiesAdminPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); setPage(1); }}
               placeholder="Buscar ciudades..."
               className="w-full pl-9 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/50"
             />
@@ -116,14 +160,20 @@ export default function CitiesAdminPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/40">
-            {filteredCities.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={4} className="py-14 text-center text-sm text-zinc-500">
+                  Cargando ciudades...
+                </td>
+              </tr>
+            ) : filteredCities.length === 0 ? (
               <tr>
                 <td colSpan={4} className="py-14 text-center text-sm text-zinc-500">
                   No se encontraron ciudades
                 </td>
               </tr>
             ) : (
-              filteredCities.map((city) => (
+              paginatedCities.map((city) => (
                 <tr key={city.id} className="hover:bg-zinc-900/50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -147,7 +197,7 @@ export default function CitiesAdminPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(city)}
+                        onClick={() => setDeletingCity(city)}
                         className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-600/20 hover:text-red-300 transition-colors"
                         title="Eliminar ciudad"
                       >
@@ -160,6 +210,29 @@ export default function CitiesAdminPage() {
             )}
           </tbody>
         </table>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1 px-4 py-4 border-t border-zinc-800/60">
+            {[
+              { label: '«', target: 1 },
+              { label: '‹', target: page - 1 },
+              { label: String(page), target: page, active: true },
+              { label: '›', target: page + 1 },
+              { label: '»', target: totalPages },
+            ].map(({ label, target, active }) => (
+              <button
+                key={label}
+                onClick={() => setPage(Math.max(1, Math.min(totalPages, target)))}
+                disabled={target < 1 || target > totalPages || target === page}
+                className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                  active ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {modalOpen && (
@@ -182,11 +255,46 @@ export default function CitiesAdminPage() {
                 <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors">
                   Cancelar
                 </button>
-                <button type="submit" className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">
-                  {editingCity ? 'Guardar cambios' : 'Crear ciudad'}
+                <button type="submit" disabled={submitting} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  {submitting ? 'Guardando...' : editingCity ? 'Guardar cambios' : 'Crear ciudad'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {deletingCity && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">¿Eliminar ciudad?</h3>
+                <p className="text-sm text-zinc-400 mt-1">
+                  Se eliminará <span className="font-medium text-zinc-200">{deletingCity.nombre}</span>. No podrás eliminarla si tiene cines asociados.
+                </p>
+              </div>
+              <div className="flex w-full gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeletingCity(null)}
+                  className="flex-1 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => handleDelete(deletingCity)}
+                  className="flex-1 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? 'Eliminando...' : 'Sí, eliminar'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

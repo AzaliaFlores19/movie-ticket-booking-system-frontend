@@ -1,31 +1,36 @@
 import axios from '@/lib/axios';
-import { MOCK_CITIES } from '@/lib/mock-data';
 import { City, CityFilters } from '@/types';
 
-type ApiEnvelope<T> = T | { data: T };
+type CityPayload = { nombre: string };
 
-function unwrapData<T>(payload: ApiEnvelope<T>): T {
-  return 'data' in Object(payload) ? (payload as { data: T }).data : (payload as T);
+// El backend devuelve { id, nombre, created_at }. Normalizamos al shape `City` del frontend.
+function normalizeCity(raw: any): City {
+  return {
+    id: Number(raw.id),
+    nombre: raw.nombre,
+    createdAt: raw.created_at ?? raw.createdAt,
+  };
+}
+
+function unwrap<T>(payload: any): T {
+  return payload && typeof payload === 'object' && 'data' in payload ? payload.data : payload;
 }
 
 export const citiesService = {
   async getAll(filters?: CityFilters): Promise<City[]> {
-    try {
       const { data } = await axios.get('/ciudades', { params: filters });
-      return unwrapData<City[]>(data);
-    } catch {
-      return MOCK_CITIES;
-    }
+      const list = unwrap<any[]>(data) ?? [];
+      return list.map(normalizeCity);
   },
 
-  async create(payload: Partial<City>): Promise<City> {
+  async create(payload: CityPayload): Promise<City> {
     const { data } = await axios.post('/ciudades', payload);
-    return unwrapData<City>(data);
+    return normalizeCity(unwrap(data));
   },
 
-  async update(id: number, payload: Partial<City>): Promise<City> {
-    const { data } = await axios.put(`/ciudades/${id}`, payload);
-    return unwrapData<City>(data);
+  async update(id: number, payload: CityPayload): Promise<City> {
+    const { data } = await axios.patch(`/ciudades/${id}`, payload);
+    return normalizeCity(unwrap(data));
   },
 
   async delete(id: number): Promise<void> {
