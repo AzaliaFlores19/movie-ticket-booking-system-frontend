@@ -5,6 +5,7 @@ export interface User {
   phone?: string;
   roleId: number;
   roleName?: string;
+  status?: string;
   createdAt?: string;
   updatedAt?: string;
   notificationsEnabled?: boolean;

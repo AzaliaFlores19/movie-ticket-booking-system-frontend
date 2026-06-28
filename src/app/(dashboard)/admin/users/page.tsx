@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, Plus, Pencil, Users, X, Eye, EyeOff } from 'lucide-react';
+import { Search, Plus, Pencil, Users, X, Eye, EyeOff, KeyRound, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { usersService } from '@/services/users.service';
 import { rolesService } from '@/services/roles.service';
@@ -41,6 +41,9 @@ export default function UsersAdminPage() {
   const { user: authUser } = useAuth();
   const isReceptionist = authUser?.role === 'RECEPCIONISTA';
 
+  // El usuario autenticado se identifica por email (AuthUser no expone id).
+  const isSelf = (user: UserWithPassword) => authUser?.email === user.email;
+
   const [users, setUsers] = useState<UserWithPassword[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +70,7 @@ export default function UsersAdminPage() {
         ? await usersService.getClients()
         : await usersService.getAll();
       setUsers(data);
-      setActiveIds(new Set(data.map((u) => u.id)));
+      setActiveIds(new Set(data.filter((u) => u.status !== 'INACTIVO').map((u) => u.id)));
     } catch (error) {
       toast.error('Error al cargar los usuarios');
     } finally {
@@ -84,16 +87,98 @@ export default function UsersAdminPage() {
   const [editingUser, setEditingUser] = useState<UserWithPassword | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_EDIT);
 
+  // Password modal
+  const [pwdUser, setPwdUser] = useState<UserWithPassword | null>(null);
+  const [pwdValue, setPwdValue] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [savingPwd, setSavingPwd] = useState(false);
+
+  function openPassword(user: UserWithPassword) {
+    setPwdUser(user);
+    setPwdValue('');
+    setShowPwd(false);
+  }
+
+  // Delete modal
+  const [deletingUser, setDeletingUser] = useState<UserWithPassword | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!deletingUser) return;
+    setDeleting(true);
+    try {
+      await usersService.remove(deletingUser.id);
+      setUsers((prev) => prev.filter((u) => u.id !== deletingUser.id));
+      setActiveIds((prev) => {
+        const next = new Set(prev);
+        next.delete(deletingUser.id);
+        return next;
+      });
+      setDeletingUser(null);
+      toast.success('Usuario eliminado correctamente');
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      toast.error(Array.isArray(message) ? message[0] : message ?? 'Error al eliminar el usuario');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function handlePasswordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pwdUser) return;
+    setSavingPwd(true);
+    try {
+      await usersService.changePassword(pwdUser.id, pwdValue);
+      setPwdUser(null);
+      toast.success('Contraseña actualizada correctamente');
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      toast.error(Array.isArray(message) ? message[0] : message ?? 'Error al cambiar la contraseña');
+    } finally {
+      setSavingPwd(false);
+    }
+  }
+
   // Dropdown
 
-  function toggleActive(id: number) {
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+
+  async function toggleActive(id: number) {
+    const target = users.find((u) => u.id === id);
+    if (target && isSelf(target)) {
+      toast.error('No puedes desactivar tu propia cuenta.');
+      return;
+    }
+    if (togglingId !== null) return;
+
     const wasActive = activeIds.has(id);
+    const nuevoEstado = wasActive ? 'INACTIVO' : 'ACTIVO';
+
+    // Optimista: actualizamos la UI y revertimos si el API falla.
     setActiveIds((prev) => {
       const next = new Set(prev);
       wasActive ? next.delete(id) : next.add(id);
       return next;
     });
-    toast.info(wasActive ? 'Usuario desactivado' : 'Usuario activado');
+    setTogglingId(id);
+
+    try {
+      await usersService.changeStatus(id, nuevoEstado);
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status: nuevoEstado } : u)));
+      toast.success(wasActive ? 'Usuario desactivado' : 'Usuario activado');
+    } catch (error: any) {
+      // Revertir el cambio optimista.
+      setActiveIds((prev) => {
+        const next = new Set(prev);
+        wasActive ? next.add(id) : next.delete(id);
+        return next;
+      });
+      const message = error?.response?.data?.message;
+      toast.error(Array.isArray(message) ? message[0] : message ?? 'Error al cambiar el estado del usuario');
+    } finally {
+      setTogglingId(null);
+    }
   }
 
   function openEdit(user: UserWithPassword) {
@@ -124,19 +209,38 @@ export default function UsersAdminPage() {
     }
   }
 
-  function handleEditSubmit(e: React.FormEvent) {
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  async function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!editingUser) return;
-    const role = roles.find((r) => r.id === Number(editForm.roleId));
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === editingUser.id
-          ? { ...u, name: editForm.name, email: editForm.email, roleId: Number(editForm.roleId), roleName: role?.name ?? u.roleName }
-          : u
-      )
-    );
-    setEditingUser(null);
-    toast.success('Usuario actualizado correctamente');
+    // El usuario no puede cambiar su propio rol: se conserva el rol original.
+    const editingSelf = isSelf(editingUser);
+    const roleId = editingSelf ? editingUser.roleId : Number(editForm.roleId);
+    const role = roles.find((r) => r.id === roleId);
+
+    setSavingEdit(true);
+    try {
+      await usersService.update(editingUser.id, {
+        name: editForm.name,
+        email: editForm.email,
+        ...(editingSelf ? {} : { roleId }),
+      });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editingUser.id
+            ? { ...u, name: editForm.name, email: editForm.email, roleId, roleName: role?.name ?? u.roleName }
+            : u
+        )
+      );
+      setEditingUser(null);
+      toast.success('Usuario actualizado correctamente');
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      toast.error(Array.isArray(message) ? message[0] : message ?? 'Error al actualizar el usuario');
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   const filtered = users.filter(
@@ -226,7 +330,12 @@ export default function UsersAdminPage() {
                   </td>
                   <td className="px-4 py-3 text-zinc-400">{user.email}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => toggleActive(user.id)} className="flex items-center gap-2">
+                    <button
+                      onClick={() => toggleActive(user.id)}
+                      disabled={isSelf(user) || togglingId === user.id}
+                      title={isSelf(user) ? 'No puedes desactivar tu propia cuenta' : undefined}
+                      className="flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${activeIds.has(user.id) ? 'bg-green-500' : 'bg-zinc-600'}`}>
                         <span className={`pointer-events-none inline-block h-4 w-4 m-0.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${activeIds.has(user.id) ? 'translate-x-4' : 'translate-x-0'}`} />
                       </span>
@@ -237,12 +346,30 @@ export default function UsersAdminPage() {
                   </td>
                   <td className="px-4 py-3 text-zinc-400">{formatDate(user.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => openEdit(user)}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => openPassword(user)}
+                        title="Cambiar contraseña"
+                        className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openEdit(user)}
+                        title="Editar usuario"
+                        className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeletingUser(user)}
+                        disabled={isSelf(user)}
+                        title={isSelf(user) ? 'No puedes eliminar tu propia cuenta' : 'Eliminar usuario'}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-600/15 hover:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -388,25 +515,109 @@ export default function UsersAdminPage() {
               <Field label="Rol" required>
                 <select
                   required
+                  disabled={isSelf(editingUser)}
                   value={editForm.roleId}
                   onChange={(e) => setEditForm({ ...editForm, roleId: e.target.value })}
-                  className={inputCls}
+                  className={`${inputCls} disabled:opacity-60 disabled:cursor-not-allowed`}
                 >
                   <option value="">Seleccionar rol</option>
                   {roles.map((r) => (
                     <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
                 </select>
+                {isSelf(editingUser) && (
+                  <p className="mt-1 text-xs text-zinc-500">No puedes editar tu propio rol.</p>
+                )}
               </Field>
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setEditingUser(null)} className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors">
                   Cancelar
                 </button>
-                <button type="submit" className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">
-                  Guardar cambios
+                <button type="submit" disabled={savingEdit} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                  {savingEdit ? 'Guardando...' : 'Guardar cambios'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal — Cambiar Contraseña */}
+      {pwdUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-red-600/20 border border-red-500/20 flex items-center justify-center text-red-400">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <h2 className="text-lg font-semibold text-white">Cambiar Contraseña</h2>
+              </div>
+              <button onClick={() => setPwdUser(null)} className="text-zinc-400 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handlePasswordSubmit} className="px-6 py-5 space-y-4">
+              <p className="text-sm text-zinc-400">
+                Estableciendo nueva contraseña para <span className="font-medium text-zinc-200">{pwdUser.name}</span>.
+              </p>
+              <Field label="Nueva contraseña" required>
+                <div className="relative">
+                  <input
+                    type={showPwd ? 'text' : 'password'}
+                    required
+                    placeholder="Mínimo 6 caracteres"
+                    minLength={6}
+                    value={pwdValue}
+                    onChange={(e) => setPwdValue(e.target.value)}
+                    className={`${inputCls} pr-10`}
+                  />
+                  <button type="button" onClick={() => setShowPwd((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
+                    {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </Field>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setPwdUser(null)} className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={savingPwd} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                  {savingPwd ? 'Guardando...' : 'Guardar contraseña'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal — Eliminar Usuario */}
+      {deletingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-red-600/20 border border-red-500/20 flex items-center justify-center text-red-400">
+                  <Trash2 className="w-4 h-4" />
+                </div>
+                <h2 className="text-lg font-semibold text-white">Eliminar Usuario</h2>
+              </div>
+              <button onClick={() => setDeletingUser(null)} className="text-zinc-400 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-zinc-400">
+                ¿Seguro que deseas eliminar a <span className="font-medium text-zinc-200">{deletingUser.name}</span>? Esta acción no se puede deshacer.
+              </p>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setDeletingUser(null)} className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors">
+                  Cancelar
+                </button>
+                <button type="button" onClick={handleDelete} disabled={deleting} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                  {deleting ? 'Eliminando...' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
