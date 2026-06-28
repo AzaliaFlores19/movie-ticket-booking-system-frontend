@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, Pencil, X, Building2, MapPin, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getCines, createCine, updateCine, type Cine } from '@/services/cinemas.service';
-import { getCiudades, type Ciudad } from '@/services/cities.service';
-
+import { citiesService } from '@/services/cities.service';
+import type { City } from '@/types'; 
 const PER_PAGE = 10;
 
 const EMPTY_FORM = { nombre: '', direccion: '', id_ciudad: '' };
@@ -21,7 +21,7 @@ function toFormValues(cine: Cine): FormState {
 
 export default function CinemasAdminPage() {
   const [cinemas, setCinemas] = useState<Cine[]>([]);
-  const [ciudades, setCiudades] = useState<Ciudad[]>([]);
+  const [ciudades, setCiudades] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -37,7 +37,7 @@ export default function CinemasAdminPage() {
       setLoading(true);
       const [cinemasData, ciudadesData] = await Promise.all([
         getCines(),
-        getCiudades()
+        citiesService.getAll(),
       ]);
       setCinemas(cinemasData);
       setCiudades(ciudadesData);
