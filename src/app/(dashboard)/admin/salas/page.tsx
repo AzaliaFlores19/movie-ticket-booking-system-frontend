@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, Pencil, X, Monitor, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { salasService } from '@/services/salas.service';
-import { cinemasService } from '@/services/cinemas.service';
+import { getCines } from '@/services/cinemas.service';
 import type { Sala, Cine } from '@/types';
 
 const PER_PAGE = 10;
@@ -72,11 +72,11 @@ export default function SalasAdminPage() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([salasService.getAll(), cinemasService.getAll()])
+    Promise.all([salasService.getAll(), getCines()])
       .then(([s, c]) => {
         if (!active) return;
         setSalas(s);
-        setCines(c);
+        setCines(c as Cine[]);
       })
       .catch(() => toast.error('Error al cargar datos'))
       .finally(() => { if (active) setLoading(false); });
