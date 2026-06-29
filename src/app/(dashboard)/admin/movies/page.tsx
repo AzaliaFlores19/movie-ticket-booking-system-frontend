@@ -4,8 +4,10 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, Plus, X, Pencil, Upload, Film } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
-import { MOCK_MOVIES, MOCK_GENRES, MOCK_LANGUAGES } from '@/lib/mock-data';
-import type { Movie } from '@/types';
+import { moviesService } from '@/services/movies.service';
+import { genresService } from '@/services/genres.service';
+import { languagesService } from '@/services/languages.service';
+import type { Movie, Genre, Language } from '@/types';
 
 const PER_PAGE = 10;
 
@@ -20,29 +22,45 @@ const EMPTY_FORM = {
 
 type FormState = typeof EMPTY_FORM;
 
+// buscar response has no activo field (only active movies returned), so default to true
+function isActive(m: Movie) {
+  return m.activo !== false;
+}
+
+// buscar response has genero: { id, nombre }, create/update has id_genero — handle both
 function toFormValues(movie: Movie): FormState {
   return {
     titulo: movie.titulo ?? '',
-    idioma_id: String(movie.idioma_id ?? ''),
-    genero_id: String(movie.genero_id ?? ''),
-    fecha_estreno: movie.fecha_estreno ?? '',
+    idioma_id: String(movie.idioma?.id ?? movie.id_idioma ?? ''),
+    genero_id: String(movie.genero?.id ?? movie.id_genero ?? ''),
+    fecha_estreno: movie.fecha_estreno
+      ? new Date(movie.fecha_estreno).toISOString().slice(0, 10)
+      : '',
     sinopsis: movie.sinopsis ?? '',
     posterPreview: movie.poster_url ?? '',
   };
 }
 
-function formatDuration(minutes: number) {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
 
-function MovieFormFields({ form, onChange }: { form: FormState; onChange: (f: FormState) => void }) {
+function MovieFormFields({
+  form,
+  genres,
+  languages,
+  onChange,
+  onFileSelect,
+}: {
+  form: FormState;
+  genres: Genre[];
+  languages: Language[];
+  onChange: (f: FormState) => void;
+  onFileSelect: (file: File | null) => void;
+}) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    onFileSelect(file);
     const reader = new FileReader();
     reader.onload = (ev) => onChange({ ...form, posterPreview: ev.target?.result as string });
     reader.readAsDataURL(file);
@@ -76,7 +94,7 @@ function MovieFormFields({ form, onChange }: { form: FormState; onChange: (f: Fo
             {form.posterPreview && (
               <button
                 type="button"
-                onClick={() => { onChange({ ...form, posterPreview: '' }); if (fileRef.current) fileRef.current.value = ''; }}
+                onClick={() => { onChange({ ...form, posterPreview: '' }); onFileSelect(null); if (fileRef.current) fileRef.current.value = ''; }}
                 className="text-xs text-red-400 hover:text-red-300 text-left transition-colors"
               >
                 Quitar imagen
@@ -113,7 +131,7 @@ function MovieFormFields({ form, onChange }: { form: FormState; onChange: (f: Fo
             className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 focus:outline-none focus:border-red-500/60"
           >
             <option value="">Seleccionar género</option>
-            {MOCK_GENRES.map((g) => (
+            {genres.map((g) => (
               <option key={g.id} value={g.id}>{g.nombre}</option>
             ))}
           </select>
@@ -129,7 +147,7 @@ function MovieFormFields({ form, onChange }: { form: FormState; onChange: (f: Fo
             className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 focus:outline-none focus:border-red-500/60"
           >
             <option value="">Seleccionar idioma</option>
-            {MOCK_LANGUAGES.map((l) => (
+            {languages.map((l) => (
               <option key={l.id} value={l.id}>{l.nombre}</option>
             ))}
           </select>
@@ -164,73 +182,148 @@ function MovieFormFields({ form, onChange }: { form: FormState; onChange: (f: Fo
 }
 
 export default function MoviesAdminPage() {
-  const [movies, setMovies] = useState<Movie[]>([...MOCK_MOVIES]);
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [languages, setLanguages] = useState<Language[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState<FormState>(EMPTY_FORM);
+  const [createPosterFile, setCreatePosterFile] = useState<File | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const [editingMovie, setEditingMovie] = useState<Movie | null>(null);
   const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM);
+  const [editPosterFile, setEditPosterFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const [activeIds, setActiveIds] = useState<Set<number>>(
-    () => new Set(MOCK_MOVIES.filter((m) => (m.estado ?? 'Activa') === 'Activa').map((m) => m.id))
-  );
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
-  function toggleActive(id: number) {
-    const wasActive = activeIds.has(id);
-    setActiveIds((prev) => {
-      const next = new Set(prev);
-      wasActive ? next.delete(id) : next.add(id);
-      return next;
-    });
-    toast.info(wasActive ? 'Película desactivada' : 'Película activada');
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      moviesService.getAll(),
+      genresService.getAll(),
+      languagesService.getAll(),
+    ])
+      .then(([m, g, l]) => {
+        if (!active) return;
+        setMovies(m);
+        setGenres(g);
+        setLanguages(l);
+      })
+      .catch(() => { if (active) toast.error('Error al cargar datos'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  async function toggleActive(movie: Movie) {
+    if (togglingId != null) return;
+    setTogglingId(movie.id);
+    try {
+      const result = await moviesService.toggleStatus(movie.id);
+      setMovies((prev) =>
+        prev.map((m) => m.id === movie.id ? { ...m, activo: result.activo } : m)
+      );
+      toast.info(result.activo ? 'Película activada' : 'Película desactivada');
+    } catch {
+      toast.error('No se pudo cambiar el estado');
+    } finally {
+      setTogglingId(null);
+    }
   }
 
   function openEdit(movie: Movie) {
     setEditingMovie(movie);
     setEditForm(toFormValues(movie));
+    setEditPosterFile(null);
   }
 
-  function handleCreateSubmit(e: React.FormEvent) {
+  async function handleCreateSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const genre = MOCK_GENRES.find((g) => g.id === Number(createForm.genero_id));
-    const language = MOCK_LANGUAGES.find((l) => l.id === Number(createForm.idioma_id));
-    const newMovie: Movie = {
-      id: Date.now(),
-      titulo: createForm.titulo,
-      sinopsis: createForm.sinopsis,
-      poster_url: createForm.posterPreview || '',
-      duracion: 0,
-      fecha_estreno: createForm.fecha_estreno,
-      genero_id: Number(createForm.genero_id),
-      genero: genre,
-      idioma_id: Number(createForm.idioma_id),
-      idioma: language,
-      estado: 'Activa',
-    };
-    setMovies((prev) => [newMovie, ...prev]);
-    setActiveIds((prev) => new Set([...prev, newMovie.id]));
-    setShowCreate(false);
-    setCreateForm(EMPTY_FORM);
-    toast.success('Película creada correctamente');
+    setCreating(true);
+    try {
+      const generoId = createForm.genero_id ? Number(createForm.genero_id) : undefined;
+      const idiomaId = createForm.idioma_id ? Number(createForm.idioma_id) : undefined;
+      const created = await moviesService.create({
+        titulo: createForm.titulo,
+        sinopsis: createForm.sinopsis || undefined,
+        fecha_estreno: createForm.fecha_estreno || undefined,
+        id_genero: generoId,
+        id_idioma: idiomaId,
+      });
+
+      let posterUrl = created.poster_url;
+      if (createPosterFile) {
+        try {
+          posterUrl = await moviesService.uploadPoster(created.id, createPosterFile);
+        } catch {
+          toast.warning('Película creada pero no se pudo subir el poster');
+        }
+      }
+
+      const enriched: Movie = {
+        ...created,
+        poster_url: posterUrl,
+        genero: genres.find((g) => g.id === (generoId ?? created.id_genero)),
+        idioma: languages.find((l) => l.id === (idiomaId ?? created.id_idioma)),
+      };
+      setMovies((prev) => [enriched, ...prev]);
+      setShowCreate(false);
+      setCreateForm(EMPTY_FORM);
+      setCreatePosterFile(null);
+      toast.success('Película creada correctamente');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(', ') : msg || 'Error al crear la película');
+    } finally {
+      setCreating(false);
+    }
   }
 
-  function handleEditSubmit(e: React.FormEvent) {
+  async function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!editingMovie) return;
-    const genre = MOCK_GENRES.find((g) => g.id === Number(editForm.genero_id));
-    const language = MOCK_LANGUAGES.find((l) => l.id === Number(editForm.idioma_id));
-    setMovies((prev) =>
-      prev.map((m) =>
-        m.id === editingMovie.id
-          ? { ...m, titulo: editForm.titulo, sinopsis: editForm.sinopsis, poster_url: editForm.posterPreview || m.poster_url, fecha_estreno: editForm.fecha_estreno, genero_id: Number(editForm.genero_id), genero: genre, idioma_id: Number(editForm.idioma_id), idioma: language }
-          : m
-      )
-    );
-    setEditingMovie(null);
-    toast.success('Película actualizada correctamente');
+    setSaving(true);
+    try {
+      const generoId = editForm.genero_id ? Number(editForm.genero_id) : undefined;
+      const idiomaId = editForm.idioma_id ? Number(editForm.idioma_id) : undefined;
+      const updated = await moviesService.update(editingMovie.id, {
+        titulo: editForm.titulo,
+        sinopsis: editForm.sinopsis || undefined,
+        fecha_estreno: editForm.fecha_estreno || undefined,
+        id_genero: generoId,
+        id_idioma: idiomaId,
+      });
+
+      let posterUrl = updated.poster_url ?? editingMovie.poster_url;
+      if (editPosterFile) {
+        try {
+          posterUrl = await moviesService.uploadPoster(editingMovie.id, editPosterFile);
+        } catch {
+          toast.warning('Datos actualizados pero no se pudo subir el poster');
+        }
+      }
+
+      const enriched: Movie = {
+        ...editingMovie,
+        ...updated,
+        poster_url: posterUrl,
+        genero: genres.find((g) => g.id === (generoId ?? updated.id_genero ?? editingMovie.genero?.id)),
+        idioma: languages.find((l) => l.id === (idiomaId ?? updated.id_idioma ?? editingMovie.idioma?.id)),
+      };
+      setMovies((prev) => prev.map((m) => m.id === editingMovie.id ? enriched : m));
+      setEditingMovie(null);
+      setEditPosterFile(null);
+      toast.success('Película actualizada correctamente');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(', ') : msg || 'Error al actualizar la película');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const filtered = movies.filter((m) =>
@@ -275,7 +368,7 @@ export default function MoviesAdminPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800/60">
-              {['Título', 'Género', 'Duración', 'Idioma', 'Estado', ''].map((col) => (
+              {['Título', 'Género', 'Estreno', 'Idioma', 'Estado', ''].map((col) => (
                 <th key={col} className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                   {col}
                 </th>
@@ -283,7 +376,13 @@ export default function MoviesAdminPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/40">
-            {paginated.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                  Cargando películas...
+                </td>
+              </tr>
+            ) : paginated.length === 0 ? (
               <tr>
                 <td colSpan={6}>
                   <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -293,51 +392,55 @@ export default function MoviesAdminPage() {
                 </td>
               </tr>
             ) : (
-              paginated.map((movie) => (
-                <tr key={movie.id} className="hover:bg-zinc-900/50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-14 rounded-lg overflow-hidden bg-zinc-800 shrink-0">
-                        {movie.poster_url ? (
-                          <Image src={movie.poster_url} alt={movie.titulo} width={40} height={56} className="w-full h-full object-cover" unoptimized />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Film className="w-4 h-4 text-zinc-600" />
-                          </div>
-                        )}
+              paginated.map((movie) => {
+                const active = isActive(movie);
+                const toggling = togglingId === movie.id;
+                return (
+                  <tr key={movie.id} className="hover:bg-zinc-900/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-14 rounded-lg overflow-hidden bg-zinc-800 shrink-0">
+                          {movie.poster_url ? (
+                            <Image src={movie.poster_url} alt={movie.titulo} width={40} height={56} className="w-full h-full object-cover" unoptimized />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Film className="w-4 h-4 text-zinc-600" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-zinc-100">{movie.titulo}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-zinc-100">{movie.titulo}</p>
-                        {movie.fecha_estreno && <p className="text-xs text-zinc-500 mt-0.5">{movie.fecha_estreno}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-400">{movie.genero?.nombre ?? '—'}</td>
-                  <td className="px-4 py-3 text-zinc-400">{movie.duracion ? formatDuration(movie.duracion) : '—'}</td>
-                  <td className="px-4 py-3 text-zinc-400">{movie.idioma?.nombre ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => toggleActive(movie.id)}
-                      className="flex items-center gap-2"
-                    >
-                      <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${activeIds.has(movie.id) ? 'bg-green-500' : 'bg-zinc-600'}`}>
-                        <span className={`pointer-events-none inline-block h-4 w-4 m-0.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${activeIds.has(movie.id) ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </span>
-                      <span className={`text-xs font-medium ${activeIds.has(movie.id) ? 'text-green-400' : 'text-zinc-500'}`}>
-                        {activeIds.has(movie.id) ? 'Activa' : 'Inactiva'}
-                      </span>
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => openEdit(movie)}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td className="px-4 py-3 text-zinc-400">{movie.genero?.nombre ?? '—'}</td>
+                    <td className="px-4 py-3 text-zinc-400">{movie.fecha_estreno ? new Date(movie.fecha_estreno).toLocaleDateString('es-MX') : '—'}</td>
+                    <td className="px-4 py-3 text-zinc-400">{movie.idioma?.nombre ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => toggleActive(movie)}
+                        disabled={toggling}
+                        className="flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${active ? 'bg-green-500' : 'bg-zinc-600'}`}>
+                          <span className={`pointer-events-none inline-block h-4 w-4 m-0.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${active ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </span>
+                        <span className={`text-xs font-medium ${active ? 'text-green-400' : 'text-zinc-500'}`}>
+                          {active ? 'Activa' : 'Inactiva'}
+                        </span>
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => openEdit(movie)}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -377,13 +480,21 @@ export default function MoviesAdminPage() {
               </button>
             </div>
             <form onSubmit={handleCreateSubmit} className="px-6 py-5 space-y-4">
-              <MovieFormFields form={createForm} onChange={setCreateForm} />
+              <MovieFormFields form={createForm} genres={genres} languages={languages} onChange={setCreateForm} onFileSelect={setCreatePosterFile} />
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => { setShowCreate(false); setCreateForm(EMPTY_FORM); }} className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => { setShowCreate(false); setCreateForm(EMPTY_FORM); }}
+                  className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
                   Cancelar
                 </button>
-                <button type="submit" className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">
-                  Crear
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {creating ? 'Creando...' : 'Crear'}
                 </button>
               </div>
             </form>
@@ -402,13 +513,21 @@ export default function MoviesAdminPage() {
               </button>
             </div>
             <form onSubmit={handleEditSubmit} className="px-6 py-5 space-y-4">
-              <MovieFormFields form={editForm} onChange={setEditForm} />
+              <MovieFormFields form={editForm} genres={genres} languages={languages} onChange={setEditForm} onFileSelect={setEditPosterFile} />
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setEditingMovie(null)} className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => setEditingMovie(null)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
                   Cancelar
                 </button>
-                <button type="submit" className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">
-                  Guardar cambios
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {saving ? 'Guardando...' : 'Guardar cambios'}
                 </button>
               </div>
             </form>

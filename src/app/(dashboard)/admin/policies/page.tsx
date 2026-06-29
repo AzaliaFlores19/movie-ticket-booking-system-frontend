@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, X, AlertCircle, ShieldCheck, Loader2 } from 'lucide-react';
+import { Plus, Pencil, X, ShieldCheck, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { policiesApi } from '@/services/policies.service';
 import type { CancellationPolicy } from '@/types';
@@ -46,10 +46,8 @@ export default function PoliciesAdminPage() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<CancellationPolicy | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const modalOpen = showCreate || !!editingPolicy;
 
@@ -89,8 +87,10 @@ export default function PoliciesAdminPage() {
     };
     try {
       if (showCreate) {
+        // Eliminar todas las políticas existentes antes de crear la nueva
+        await Promise.all(policies.map((p) => policiesApi.delete(p.id)));
         const newPolicy = await policiesApi.create(payload);
-        setPolicies((prev) => [...prev, newPolicy]);
+        setPolicies([newPolicy]);
         toast.success('Política creada correctamente.');
       } else if (editingPolicy) {
         const updated = await policiesApi.update(editingPolicy.id, payload);
@@ -103,21 +103,6 @@ export default function PoliciesAdminPage() {
       toast.error(Array.isArray(msg) ? msg.join(', ') : msg || 'No se pudo guardar la política');
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function handleDelete(id: number) {
-    setDeleting(true);
-    try {
-      await policiesApi.delete(id);
-      setPolicies((prev) => prev.filter((p) => p.id !== id));
-      setDeletingId(null);
-      toast.success('Política eliminada correctamente.');
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(', ') : msg || 'No se pudo eliminar la política');
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -178,14 +163,9 @@ export default function PoliciesAdminPage() {
                     <RefundBadge porcentaje={policy.porcentaje_reembolso} />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => openEdit(policy)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-blue-400 transition-all active:scale-90" title="Editar">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => setDeletingId(policy.id)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-red-400 transition-all active:scale-90" title="Eliminar">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <button onClick={() => openEdit(policy)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-blue-400 transition-all active:scale-90" title="Editar">
+                      <Pencil className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -250,29 +230,6 @@ export default function PoliciesAdminPage() {
         </div>
       )}
 
-      {/* Modal — Confirmar borrado */}
-      {deletingId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex flex-col items-center text-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">¿Eliminar política?</h3>
-                <p className="text-sm text-zinc-400 mt-1">Esta acción no se puede deshacer.</p>
-              </div>
-              <div className="flex w-full gap-3 mt-2">
-                <button onClick={() => setDeletingId(null)} disabled={deleting} className="flex-1 py-2 rounded-xl text-xs font-bold text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors disabled:opacity-50">CANCELAR</button>
-                <button onClick={() => handleDelete(deletingId)} disabled={deleting} className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                  {deleting && <Loader2 className="w-3 h-3 animate-spin" />}
-                  SÍ, ELIMINAR
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

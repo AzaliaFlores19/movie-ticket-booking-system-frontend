@@ -48,6 +48,7 @@ async function fetchRoleName(accessToken: string, idRol?: number): Promise<strin
 
 function buildSession(rawUser: any, access_token: string, role: string) {
   return {
+    id: rawUser.id,
     email: rawUser.email,
     name: rawUser.nombre ?? rawUser.name,
     role,

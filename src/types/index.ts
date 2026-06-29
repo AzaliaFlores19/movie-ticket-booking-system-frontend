@@ -54,6 +54,7 @@ export interface Sala {
   tipo?: string;
   filas?: number;
   columnas?: number;
+  precio?: number;
   cine_id?: number;
   id_cine?: number;
   cine?: Pick<Cine, 'id' | 'nombre'>;
@@ -74,6 +75,7 @@ export interface Movie {
   id_idioma?: number;
   idioma?: Language;
   estado?: string;
+  activo?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -113,8 +115,10 @@ export interface ReservaFuncion {
   fecha_hora: string;
   estado?: string;
   precio?: number;
+  cine?: string;
+  ubicacion?: string;
   peliculas?: { id?: number; titulo?: string; poster_url?: string };
-  salas?: { nombre?: string; cines?: { nombre?: string } };
+  salas?: { nombre?: string; precio?: number; cines?: { nombre?: string; direccion?: string } };
 }
 
 export interface ReservaAsiento {
@@ -137,7 +141,7 @@ export interface Reservation {
   estado: string;
   total?: number;
   usuario_id?: number;
-  usuario?: User;
+  usuario?: User & { nombre?: string; telefono?: string };
   funcion_id?: number;
   funcion?: Funcion;
   asientos?: AsientoFuncion[];

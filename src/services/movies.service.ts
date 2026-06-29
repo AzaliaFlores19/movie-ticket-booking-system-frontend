@@ -1,90 +1,96 @@
 import axios from '@/lib/axios';
-import { MOCK_MOVIES, MOCK_CINES, MOCK_FUNCIONES } from '@/lib/mock-data';
 import { Movie, Cine, Funcion, MovieFilters } from '@/types';
+
+function unwrap<T>(payload: unknown): T {
+  if (payload && typeof payload === 'object' && 'data' in (payload as object)) {
+    return (payload as { data: T }).data;
+  }
+  return payload as T;
+}
+
+function getSessionUserId(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const session = localStorage.getItem('movie_auth_session');
+    if (session) {
+      const { id } = JSON.parse(session);
+      return id ?? 0;
+    }
+  } catch {}
+  return 0;
+}
 
 export const moviesService = {
   async getAll(filters?: MovieFilters): Promise<Movie[]> {
-    try {
-      const { data } = await axios.get('/peliculas', { params: filters });
-      
-      return data.data || data; 
-    } catch (error) {
-      console.log('Backend no disponible, ejecutando filtro mock en memoria...');
-      
-      if (!filters) return MOCK_MOVIES;
-
-      return MOCK_MOVIES.filter((movie) => {
-        if (filters.titulo && !movie.titulo.toLowerCase().includes(filters.titulo.toLowerCase())) {
-          return false;
-        }
-
-        const movieGeneroId = movie.id_genero || (movie as any).genero_id || movie.genero?.id;
-        if (filters.genero && String(movieGeneroId) !== String(filters.genero)) {
-          return false;
-        }
-
-        const movieIdiomaId = movie.id_idioma || (movie as any).idioma_id || movie.idioma?.id;
-        if (filters.idioma && String(movieIdiomaId) !== String(filters.idioma)) {
-          return false;
-        }
-
-        const movieCiudadId = (movie as any).id_ciudad || (movie as any).ciudad_id;
-        if (filters.ciudad_id && movieCiudadId && String(movieCiudadId) !== String(filters.ciudad_id)) {
-          return false;
-        }
-
-        if (movie.fecha_estreno) {
-          const movieDate = new Date(movie.fecha_estreno).getTime();
-          if (filters.fecha_inicio && movieDate < new Date(filters.fecha_inicio).getTime()) {
-            return false;
-          }
-          if(filters.fecha_fin && movieDate > new Date(filters.fecha_fin).getTime()) {
-            return false;
-          }
-        }
-
-        return true;
-      });
-    }
+    const { data } = await axios.get('/peliculas', { params: filters });
+    // response: { message, total, data: [...] }
+    return Array.isArray(data) ? data : unwrap<Movie[]>(data);
   },
 
+  async getOne(id: number): Promise<Movie> {
+    const { data } = await axios.get(`/peliculas/${id}`);
+    return unwrap<Movie>(data);
+  },
 
-  async getOne(id: number): Promise<Movie | null> {
-    try {
-      const { data } = await axios.get(`/movies/${id}`);
-      return data;
-    } catch (error) {
-      return MOCK_MOVIES.find((m) => m.id === id) || null;
-    }
+  async create(payload: {
+    titulo: string;
+    sinopsis?: string;
+    fecha_estreno?: string;
+    id_genero?: number;
+    id_idioma?: number;
+  }): Promise<Movie> {
+    // response: { message, data: rawPeliculaObject }
+    const { data } = await axios.post('/peliculas', {
+      ...payload,
+      id_usuario: getSessionUserId(),
+    });
+    return unwrap<Movie>(data);
+  },
+
+  async update(id: number, payload: Partial<{
+    titulo: string;
+    sinopsis: string;
+    fecha_estreno: string;
+    id_genero: number;
+    id_idioma: number;
+  }>): Promise<Movie> {
+    // response: { message, data: rawPeliculaObject, editor: {...} }
+    const { data } = await axios.put(`/peliculas/${id}`, {
+      ...payload,
+      id_editor: getSessionUserId(),
+    });
+    return unwrap<Movie>(data);
+  },
+
+  async toggleStatus(id: number): Promise<{ id: number; activo: boolean }> {
+    // response: { message, data: { id, activo }, editor: {...} }
+    const { data } = await axios.patch(`/peliculas/${id}/status`, {
+      id_editor: getSessionUserId(),
+    });
+    return unwrap<{ id: number; activo: boolean }>(data);
+  },
+
+  async uploadPoster(id: number, file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('poster', file);
+    const { data } = await axios.post(`/peliculas/${id}/poster`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    const result = unwrap<{ poster_url: string }>(data);
+    return result.poster_url;
+  },
+
+  async delete(id: number): Promise<void> {
+    await axios.delete(`/peliculas/${id}`);
   },
 
   async getCines(movieId: number): Promise<Cine[]> {
-    try {
-      const { data } = await axios.get(`/movies/${movieId}/cines`);
-      return data;
-    } catch (error) {
-      return MOCK_CINES;
-    }
+    const { data } = await axios.get(`/peliculas/${movieId}/cines`);
+    return Array.isArray(data) ? data : unwrap<Cine[]>(data);
   },
 
   async getFunciones(movieId: number, cineId: number): Promise<Funcion[]> {
-    try {
-      const { data } = await axios.get(`/movies/${movieId}/cines/${cineId}/funciones`);
-      return data;
-    } catch (error) {
-      return MOCK_FUNCIONES;
-    }
-  },
-
-  async create(data: FormData) {
-    return await axios.post('/movies', data);
-  },
-
-  async update(id: number, data: any) {
-    return await axios.put(`/movies/${id}`, data);
-  },
-
-  async delete(id: number) {
-    return await axios.delete(`/movies/${id}`);
+    const { data } = await axios.get(`/peliculas/${movieId}/cines/${cineId}/funciones`);
+    return Array.isArray(data) ? data : unwrap<Funcion[]>(data);
   },
 };

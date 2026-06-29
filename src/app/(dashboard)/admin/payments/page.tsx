@@ -220,7 +220,7 @@ export default function PaymentsAdminPage() {
                     </td>
                     <td className="px-4 py-3 font-medium text-zinc-100">#{payment.id}</td>
                     <td className="px-4 py-3 font-semibold text-zinc-100">
-                      ${payment.monto.toLocaleString('es-MX')}
+                      L{payment.monto.toLocaleString('es-MX')}
                     </td>
                     <td className="px-4 py-3 text-zinc-400">{payment.metodo}</td>
                     <td className="px-4 py-3">

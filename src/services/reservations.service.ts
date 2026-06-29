@@ -9,7 +9,7 @@ export const reservationsService = {
 
   async getAll(): Promise<Reservation[]> {
     const { data } = await axios.get<Reservation[]>('/reservas');
-    return data;
+    return Array.isArray(data) ? data : [];
   },
 
   async cancel(id: number): Promise<void> {
