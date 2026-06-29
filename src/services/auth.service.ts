@@ -2,11 +2,29 @@ import axios from '@/lib/axios';
 
 const SESSION_KEY = 'movie_auth_session';
 
+type AuthUserResponse = {
+  email?: string;
+  nombre?: string;
+  name?: string;
+  id_rol?: number;
+};
+
+type ApiErrorResponse = {
+  response?: {
+    status?: number;
+    data?: { message?: unknown };
+  };
+};
+
 function extractMessage(raw: unknown): string | null {
   if (!raw) return null;
   if (Array.isArray(raw)) return raw.join(', ');
   if (typeof raw === 'string') return raw;
   return null;
+}
+
+function getApiError(error: unknown): ApiErrorResponse {
+  return error && typeof error === 'object' ? (error as ApiErrorResponse) : {};
 }
 
 function setAuthCookies(token: string, role: string) {
@@ -21,32 +39,30 @@ function clearAuthCookies() {
   document.cookie = `auth_role=;expires=${past};path=/;SameSite=Strict`;
 }
 
-// Mapeo directo de IDs de roles a nombres
 const ROLE_MAP: Record<number, string> = {
   1: 'ADMIN',
   2: 'CLIENTE',
   3: 'RECEPCIONISTA',
 };
 
-// Tries multiple strategies to get the role name string from the backend.
 async function fetchRoleName(accessToken: string, idRol?: number): Promise<string> {
-  // Si tenemos el ID, usamos nuestro mapeo local que es seguro y rápido
   if (idRol !== undefined && ROLE_MAP[idRol]) {
     return ROLE_MAP[idRol];
   }
 
-  // Fallback si no tenemos el ID o no está en el mapa
   const headers = { Authorization: `Bearer ${accessToken}` };
   try {
     const { data } = await axios.get('/auth/profile', { headers });
     const role = data.role ?? data.roles?.nombre ?? data.roleName;
     if (role) return role;
-  } catch { /* continue */ }
+  } catch {
+    // continue
+  }
 
   return 'CLIENTE';
 }
 
-function buildSession(rawUser: any, access_token: string, role: string) {
+function buildSession(rawUser: AuthUserResponse, access_token: string, role: string) {
   return {
     id: rawUser.id,
     email: rawUser.email,
@@ -65,7 +81,7 @@ export const authService = {
       });
 
       const access_token = data.access_token;
-      const rawUser = data.user;
+      const rawUser = data.user as AuthUserResponse;
       const role = await fetchRoleName(access_token, rawUser?.id_rol);
       const sessionData = buildSession(rawUser, access_token, role);
 
@@ -74,11 +90,10 @@ export const authService = {
         setAuthCookies(access_token, role);
       }
       return sessionData;
-    } catch (apiError: any) {
-      const status = apiError?.response?.status;
-      const msg = extractMessage(apiError?.response?.data?.message);
-
-      throw new Error(msg || 'El correo electrónico o la contraseña son incorrectos');
+    } catch (error: unknown) {
+      const apiError = getApiError(error);
+      const msg = extractMessage(apiError.response?.data?.message);
+      throw new Error(msg || 'El correo electronico o la contrasena son incorrectos');
     }
   },
 
@@ -94,7 +109,7 @@ export const authService = {
 
       const access_token = data.access_token;
       if (access_token) {
-        const rawUser = data.user;
+        const rawUser = data.user as AuthUserResponse;
         const role = await fetchRoleName(access_token, rawUser?.id_rol);
         const sessionData = buildSession(rawUser, access_token, role);
 
@@ -106,12 +121,13 @@ export const authService = {
       }
 
       return { success: true, autoLogin: false };
-    } catch (apiError: any) {
-      const status = apiError?.response?.status;
-      const msg = extractMessage(apiError?.response?.data?.message);
+    } catch (error: unknown) {
+      const apiError = getApiError(error);
+      const status = apiError.response?.status;
+      const msg = extractMessage(apiError.response?.data?.message);
 
       if (status === 409 || (msg && msg.toLowerCase().includes('ya esta'))) {
-        throw new Error('Este correo electrónico ya está registrado.');
+        throw new Error('Este correo electronico ya esta registrado.');
       }
       throw new Error(msg || `Error al registrarse (${status}). Intenta de nuevo.`);
     }
@@ -121,10 +137,21 @@ export const authService = {
     try {
       await axios.post('/auth/forgot-password', { email });
       return { success: true };
-    } catch (apiError: any) {
-      const status = apiError?.response?.status;
-      const msg = extractMessage(apiError?.response?.data?.message);
+    } catch (error: unknown) {
+      const apiError = getApiError(error);
+      const msg = extractMessage(apiError.response?.data?.message);
       throw new Error(msg || 'No se pudo enviar el correo. Intenta de nuevo.');
+    }
+  },
+
+  async resetPassword(token: string, newPassword: string) {
+    try {
+      await axios.post('/auth/reset-password', { token, newPassword });
+      return { success: true };
+    } catch (error: unknown) {
+      const apiError = getApiError(error);
+      const msg = extractMessage(apiError.response?.data?.message);
+      throw new Error(msg || 'El token es invalido o expiro. Solicita un nuevo enlace.');
     }
   },
 

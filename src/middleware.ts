@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 const ADMIN_ROUTES = ['/admin'];
 const PROTECTED_ROUTES = ['/profile', '/my-bookings', '/checkout', '/payment'];
-const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
+const AUTH_REDIRECT_ROUTES = ['/login', '/register'];
 
 // Rutas permitidas para RECEPCIONISTA dentro de /admin
 const RECEPCIONISTA_ALLOWED_ROUTES = [
@@ -20,10 +20,10 @@ export function middleware(request: NextRequest) {
 
   const isAdminRoute = ADMIN_ROUTES.some((r) => pathname.startsWith(r));
   const isProtectedRoute = PROTECTED_ROUTES.some((r) => pathname.startsWith(r));
-  const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
+  const shouldRedirectAuthenticatedUser = AUTH_REDIRECT_ROUTES.some((r) => pathname.startsWith(r));
 
   // Redirect logged-in users away from login/register
-  if (isAuthRoute && token) {
+  if (shouldRedirectAuthenticatedUser && token) {
     const dest = role === 'ADMIN' ? '/admin/movies' : role === 'RECEPCIONISTA' ? '/admin/reservations' : '/';
     return NextResponse.redirect(new URL(dest, request.url));
   }
