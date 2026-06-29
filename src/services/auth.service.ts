@@ -3,6 +3,7 @@ import axios from '@/lib/axios';
 const SESSION_KEY = 'movie_auth_session';
 
 type AuthUserResponse = {
+  id?: number;
   email?: string;
   nombre?: string;
   name?: string;
@@ -166,5 +167,10 @@ export const authService = {
     if (typeof window === 'undefined') return null;
     const session = localStorage.getItem(SESSION_KEY);
     return session ? JSON.parse(session) : null;
+  },
+
+  getCurrentUserId(): number | null {
+    const id = this.getCurrentUser()?.id;
+    return id != null ? Number(id) : null;
   },
 };

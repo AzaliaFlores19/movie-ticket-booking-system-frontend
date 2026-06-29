@@ -59,7 +59,10 @@ export interface Sala {
   cine_id?: number;
   id_cine?: number;
   cine?: Pick<Cine, 'id' | 'nombre'>;
-  cines?: Pick<Cine, 'id' | 'nombre' | 'direccion'> & { id_ciudad?: number };
+  cines?: Pick<Cine, 'id' | 'nombre' | 'direccion'> & {
+    id_ciudad?: number;
+    ciudades?: { id?: number; nombre?: string };
+  };
   createdAt?: string;
   updatedAt?: string;
 }

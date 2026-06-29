@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/components/layout/MainLayout';
-import { BookingTimer, clearBookingTimer } from '@/components/booking/BookingTimer';
+import { BookingTimer } from '@/components/booking/BookingTimer';
 import {
   ArrowLeft, Loader2, Clock, Building2, Film, Ticket, Check, User,
   AlertCircle, X, Search, Users, Loader,
@@ -67,7 +67,9 @@ function readFuncion(f: any) {
     direccion: f?.cine?.direccion ?? f?.salas?.cines?.direccion ?? null,
     sala: f?.sala?.nombre ?? f?.salas?.nombre ?? null,
     fechaHora: f?.fecha_hora as string | undefined,
-    precio: Number(f?.precio ?? 0),
+    // El precio vive en la sala (Prisma): GET /funciones/:id no trae `precio`
+    // a nivel de función, sino dentro de `salas`.
+    precio: Number(f?.precio ?? f?.salas?.precio ?? f?.sala?.precio ?? 0),
     peliculaId: f?.pelicula?.id ?? f?.pelicula_id ?? f?.id_pelicula ?? null,
   };
 }
@@ -78,7 +80,7 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
   const router = useRouter();
 
   const [funcion, setFuncion] = useState<Funcion | null>(null);
-  const [seats, setSeats] = useState<Seat[]>([]);
+  const [seats, setSeats] = useState<AsientoFuncion[]>([]);
   const [otherFunciones, setOtherFunciones] = useState<Funcion[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,18 +135,27 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
   );
 
   useEffect(() => {
+    const role = authService.getCurrentUser()?.role;
+    setIsStaff(STAFF_ROLES.includes(role));
+
     let active = true;
-
-    queueMicrotask(() => {
-      if (!active) return;
-      // Math.random() en el generador de asientos: lo ejecutamos solo en cliente para evitar hydration mismatch.
-      setFuncion(getMockFuncionById(funcionId));
-      setSeats(getMockSeatsForFuncion(funcionId));
-      const role = authService.getCurrentUser()?.role;
-      setIsStaff(STAFF_ROLES.includes(role));
-      setLoading(false);
-    });
-
+    Promise.all([
+      functionsService.getOne(funcionId),
+      functionsService.getSeats(funcionId),
+    ])
+      .then(([fn, rawSeats]) => {
+        if (!active) return;
+        setFuncion(fn);
+        setSeats(rawSeats);
+        if (fn?.pelicula_id) {
+          functionsService
+            .getAll({ pelicula_id: fn.pelicula_id })
+            .then((all) => { if (active) setOtherFunciones(all.filter((f) => f.estado === 'DISPONIBLE')); })
+            .catch(() => {});
+        }
+      })
+      .catch(() => { if (active) setFuncion(null); })
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [funcionId]);
 
@@ -252,25 +263,21 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
       //    API responde 409 y refrescamos el mapa.
       await functionsService.blockSeats(funcionId, selected, BLOCK_MINUTES);
 
-      if (isStaff) {
-        // 2a) Personal de taquilla/admin: crea la reserva formal. Si hay un
-        //     cliente seleccionado se envía su id; de lo contrario el backend
-        //     usa el id del usuario autenticado.
-        const res = await reservationsService.create({
-          id_funcion: funcionId,
-          asientosFuncionIds: selected,
-          ...(selectedClient ? { id_usuario_cliente: selectedClient.id } : {}),
-        });
-        clearBookingTimer();
-        toast.success(`Reserva ${res.codigoTicket} creada (${res.estado.replace(/_/g, ' ').toLowerCase()}).`);
-        router.push('/admin/reservations');
-        return;
-      }
+      // 2) Reserva formal (cliente o staff). Si hay un cliente seleccionado
+      //    (solo staff) se envía su id; de lo contrario el backend usa el id del
+      //    usuario autenticado, dejando la reserva a su propio nombre.
+      const res = await reservationsService.create({
+        id_funcion: funcionId,
+        asientosFuncionIds: selected,
+        ...(isStaff && selectedClient ? { id_usuario_cliente: selectedClient.id } : {}),
+      });
 
-      // 2b) Cliente: avanza al checkout con los asientos ya bloqueados a su
-      //     nombre. La reserva se crea con su propio id al confirmar el pago.
+      // 3) Con la reserva ya creada, mostramos la página de pago/checkout
+      //    llevando el código y el total. El cobro se gestiona en ese flujo.
       const query = new URLSearchParams({
         funcionId: String(funcionId),
+        reservaId: String(res.reservaId),
+        reservaCodigo: res.codigoTicket,
         asientos: selectedSeatLabels.join(','),
         asientosFuncionIds: selected.join(','),
         total: String(total),

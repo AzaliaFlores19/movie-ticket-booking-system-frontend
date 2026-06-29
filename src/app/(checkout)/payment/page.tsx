@@ -304,12 +304,7 @@ function PaymentContent() {
     }
   }
 
-  const methodOptions: {
-    id: PaymentMethod;
-    label: string;
-    icon: React.ReactNode;
-    desc: string;
-  }[] = [
+  const methodOptions = ([
     {
       id: "TARJETA",
       label: "Tarjeta",
@@ -322,7 +317,8 @@ function PaymentContent() {
       icon: <Banknote className="h-4 w-4" />,
       desc: "Pago en taquilla",
     },
-  ].filter((option) => option.id !== "EFECTIVO" || canPayCash);
+  ] as { id: PaymentMethod; label: string; icon: React.ReactNode; desc: string }[])
+    .filter((option) => option.id !== "EFECTIVO" || canPayCash);
 
   return (
     <MainLayout>
