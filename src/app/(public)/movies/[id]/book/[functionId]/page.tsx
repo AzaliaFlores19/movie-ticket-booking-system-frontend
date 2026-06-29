@@ -41,36 +41,18 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
   const [clienteId, setClienteId] = useState<number | null>(null);
 
   useEffect(() => {
-    const role = authService.getCurrentUser()?.role;
-    setIsStaff(STAFF_ROLES.includes(role));
-
     let active = true;
-    Promise.all([
-      functionsService.getOne(funcionId),
-      functionsService.getSeats(funcionId),
-    ])
-      .then(([fn, rawSeats]) => {
-        if (!active) return;
-        setFuncion(fn);
-        setSeats(rawSeats.map((af) => ({
-          id: af.id,
-          estado: af.estado,
-          asiento: {
-            id: af.asiento.id,
-            fila: af.asiento.fila,
-            columna: af.asiento.columna,
-            tipo: af.asiento.tipo,
-          },
-        })));
-        if (fn?.pelicula_id) {
-          functionsService
-            .getAll({ pelicula_id: fn.pelicula_id })
-            .then((all) => { if (active) setOtherFunciones(all.filter((f) => f.estado === 'DISPONIBLE')); })
-            .catch(() => {});
-        }
-      })
-      .catch(() => { if (active) setFuncion(null); })
-      .finally(() => { if (active) setLoading(false); });
+
+    queueMicrotask(() => {
+      if (!active) return;
+      // Math.random() en el generador de asientos: lo ejecutamos solo en cliente para evitar hydration mismatch.
+      setFuncion(getMockFuncionById(funcionId));
+      setSeats(getMockSeatsForFuncion(funcionId));
+      const role = authService.getCurrentUser()?.role;
+      setIsStaff(STAFF_ROLES.includes(role));
+      setLoading(false);
+    });
+
     return () => { active = false; };
   }, [funcionId]);
 
@@ -86,6 +68,7 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
     const query = new URLSearchParams({
       funcionId: String(funcionId),
       asientos: seatLabels,
+      asientosFuncionIds: selected.join(','),
       total: String(selected.length * (funcion?.precio ?? 0)),
     });
     if (isStaff && clienteId) query.set('clienteId', String(clienteId));
