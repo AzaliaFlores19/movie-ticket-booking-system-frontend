@@ -10,6 +10,7 @@ const RECEPCIONISTA_ALLOWED_ROUTES = [
   '/admin/reservations',
   '/admin/payments',
   '/admin/reports',
+  '/admin/users',
 ];
 
 export function middleware(request: NextRequest) {

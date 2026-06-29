@@ -28,7 +28,7 @@ const NAV_ITEMS = [
   { label: 'Ciudades', href: '/admin/cities', icon: MapPin, roles: ['ADMIN'] },
   { label: 'Géneros', href: '/admin/genres', icon: Film, roles: ['ADMIN'] },
   { label: 'Idiomas', href: '/admin/languages', icon: Globe, roles: ['ADMIN'] },
-  { label: 'Usuarios', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
+  { label: 'Usuarios', href: '/admin/users', icon: Users, roles: ['ADMIN', 'RECEPCIONISTA'] },
   { label: 'Roles', href: '/admin/roles', icon: Shield, roles: ['ADMIN'] },
   { label: 'Reservaciones', href: '/admin/reservations', icon: Ticket, roles: ['ADMIN', 'RECEPCIONISTA'] },
   { label: 'Pagos y Reembolsos', href: '/admin/payments', icon: CreditCard, roles: ['ADMIN', 'RECEPCIONISTA'] },
