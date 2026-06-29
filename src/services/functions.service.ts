@@ -8,6 +8,35 @@ function unwrapData<T>(payload: ApiEnvelope<T>): T {
   return 'data' in Object(payload) ? (payload as { data: T }).data : (payload as T);
 }
 
+// El endpoint GET /funciones/:id/asientos devuelve un objeto "plano"
+// (id_asiento_funcion, fila, columna, tipo, ...). Lo normalizamos al shape
+// AsientoFuncion que consumen el mapa visual y el flujo de reserva.
+function normalizeSeat(raw: any): AsientoFuncion {
+  if (raw && typeof raw === 'object' && 'id_asiento_funcion' in raw) {
+    return {
+      id: Number(raw.id_asiento_funcion),
+      estado: raw.estado,
+      asiento_id: raw.id_asiento_fisico != null ? Number(raw.id_asiento_fisico) : undefined,
+      asiento: {
+        id: raw.id_asiento_fisico != null ? Number(raw.id_asiento_fisico) : Number(raw.id_asiento_funcion),
+        fila: String(raw.fila ?? '').trim(),
+        columna: Number(raw.columna),
+        tipo: raw.tipo ?? 'NORMAL',
+      },
+      id_usuario: raw.id_usuario != null ? Number(raw.id_usuario) : null,
+      bloqueado_hasta: raw.bloqueado_hasta ?? null,
+    };
+  }
+  // Ya viene en el shape AsientoFuncion (datos mock).
+  return raw as AsientoFuncion;
+}
+
+export interface BlockSeatsResponse {
+  message: string;
+  asientosAfectados: number[];
+  expira_at: string;
+}
+
 export const functionsService = {
   async getAll(filters?: FuncionFilters): Promise<Funcion[]> {
     try {
@@ -45,10 +74,26 @@ export const functionsService = {
 
   async getSeats(funcionId: number): Promise<AsientoFuncion[]> {
     try {
-      const { data } = await axios.get<AsientoFuncion[]>(`/funciones/${funcionId}/asientos`);
-      return unwrapData<AsientoFuncion[]>(data);
+      const { data } = await axios.get(`/funciones/${funcionId}/asientos`);
+      const list = unwrapData<any[]>(data);
+      return (Array.isArray(list) ? list : []).map(normalizeSeat);
     } catch {
       return getMockSeatsForFuncion(funcionId) as AsientoFuncion[];
     }
+  },
+
+  // Bloqueo temporal de asientos en el carrito (control de concurrencia).
+  // POST /funciones/:id/asientos/bloquear. Lanza el error de axios (409) si
+  // algún asiento ya fue tomado por otro usuario, para que la UI lo maneje.
+  async blockSeats(
+    funcionId: number,
+    asientosFuncionIds: number[],
+    minutosExpiracion?: number,
+  ): Promise<BlockSeatsResponse> {
+    const { data } = await axios.post<BlockSeatsResponse>(
+      `/funciones/${funcionId}/asientos/bloquear`,
+      { asientosFuncionIds, ...(minutosExpiracion ? { minutosExpiracion } : {}) },
+    );
+    return data;
   },
 };

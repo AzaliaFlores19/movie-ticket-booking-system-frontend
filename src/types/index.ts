@@ -59,7 +59,10 @@ export interface Sala {
   cine_id?: number;
   id_cine?: number;
   cine?: Pick<Cine, 'id' | 'nombre'>;
-  cines?: Pick<Cine, 'id' | 'nombre' | 'direccion'> & { id_ciudad?: number };
+  cines?: Pick<Cine, 'id' | 'nombre' | 'direccion'> & {
+    id_ciudad?: number;
+    ciudades?: { id?: number; nombre?: string };
+  };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -115,6 +118,18 @@ export interface AsientoFuncion {
   funcion_id?: number;
   asiento_id?: number;
   asiento: Asiento;
+  // Campos de concurrencia provenientes del mapa de asientos de la API.
+  id_usuario?: number | null;
+  bloqueado_hasta?: string | null;
+}
+
+// Cliente devuelto por GET /admin/users (búsqueda para reservas de taquilla).
+export interface ClienteBusqueda {
+  id: number;
+  nombre: string;
+  email: string;
+  telefono?: string | null;
+  estado?: string;
 }
 
 export interface ReservaFuncion {
