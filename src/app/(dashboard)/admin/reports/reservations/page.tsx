@@ -1,20 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Search, Ticket, Eye, CheckCircle2, Trash, Download,
-  Film, Clock, User as UserIcon, Armchair, CalendarClock,
+  Search, Ticket, Eye, Trash, Download, Film, Clock,
+  User as UserIcon, Armchair, CalendarClock, Loader2,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { MOCK_RESERVATIONS, MOCK_FUNCIONES } from '@/lib/mock-data';
-import type { Reservation } from '@/types';
+import { reportsService } from '@/services/reports.service';
 
 const PER_PAGE = 10;
-
-const ESTADOS = ['PENDIENTE', 'CONFIRMADA', 'PAGADA', 'CANCELADA'] as const;
+const ESTADOS = ['PENDIENTE_DE_PAGO', 'CONFIRMADA', 'PAGADA', 'CANCELADA'] as const;
 type Estado = (typeof ESTADOS)[number];
 
+type ReservationReportRow = {
+  id: number;
+  codigo: string;
+  estado: string;
+  cliente: string;
+  pelicula: string;
+  funcion: string;
+  asientos: number;
+  total: number;
+  metodoPago: string;
+  estadoPago: string;
+  createdAt: string;
+};
+
+type ReportMeta = {
+  total_items?: number;
+  items_per_page?: number;
+  current_page?: number;
+  total_pages?: number;
+};
+
 const ESTADO_STYLES: Record<string, string> = {
+  PENDIENTE_DE_PAGO: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
   PENDIENTE: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
   CONFIRMADA: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   PAGADA: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -31,230 +51,215 @@ function estadoBadge(estado: string) {
 }
 
 function formatDateTime(value?: string) {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString('es-MX', {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('es-HN', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
 
-function funcionLabel(funcionId: number) {
-  const f = MOCK_FUNCIONES.find((x) => x.id === funcionId);
-  if (!f) return `Funcion #${funcionId}`;
-  return `${f.pelicula?.titulo ?? 'Pelicula'} · ${formatDateTime(f.fecha_hora)}`;
+function toNumber(value: unknown) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
-const CSV_DELIM = ';';
+function normalizeReservation(raw: ReservationApiRow): ReservationReportRow {
+  const pago = raw.pagos?.[0];
+  const funcion = raw.funciones;
+  const id = toNumber(raw.id);
+  return {
+    id,
+    codigo: raw.numero_reserva ?? `#${id}`,
+    estado: raw.estado ?? '-',
+    cliente: raw.usuarios?.nombre ?? raw.usuario?.nombre ?? (raw.id_usuario ? `Usuario #${raw.id_usuario}` : '-'),
+    pelicula: funcion?.peliculas?.titulo ?? '-',
+    funcion: funcion?.fecha_hora ?? raw.created_at,
+    asientos: raw.reservaAsientos?.length ?? raw.asientos?.length ?? 0,
+    total: toNumber(pago?.monto_final),
+    metodoPago: pago?.metodo ?? '-',
+    estadoPago: pago?.estado ?? '-',
+    createdAt: raw.created_at ?? raw.createdAt ?? '',
+  };
+}
 
-// Escapa un valor para CSV (comillas, separador y saltos de línea)
-function csvCell(value: unknown) {
-  const str = value == null ? '' : String(value);
-  return /["\n;,]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 export default function ReportsReservationsAdminPage() {
-  const [reservations, setReservations] = useState<Reservation[]>([...MOCK_RESERVATIONS]);
+  const [reservations, setReservations] = useState<ReservationReportRow[]>([]);
+  const [meta, setMeta] = useState<ReportMeta>({});
   const [search, setSearch] = useState('');
   const [estadoFilter, setEstadoFilter] = useState<'' | Estado>('');
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
+  const [fecha, setFecha] = useState('');
   const [page, setPage] = useState(1);
-  const [viewing, setViewing] = useState<Reservation | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [viewing, setViewing] = useState<ReservationReportRow | null>(null);
 
-  function updateEstado(id: number, estado: Estado) {
-    setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, estado } : r)));
-    setViewing((v) => (v && v.id === id ? { ...v, estado } : v));
-    toast.success(`Reserva marcada como ${estado}`);
-  }
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setLoading(true);
+    });
 
-  const filtered = reservations.filter((r) => {
-    const matchesSearch =
-      (r.codigo ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.usuario?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (r.funcion?.pelicula?.titulo ?? '').toLowerCase().includes(search.toLowerCase());
-    const matchesEstado = !estadoFilter || r.estado === estadoFilter;
+    reportsService.getReservations({
+      estado: estadoFilter || undefined,
+      fecha: fecha || undefined,
+      page,
+      limit: PER_PAGE,
+    })
+      .then((response) => {
+        if (!active) return;
+        const data = (response.data ?? []) as ReservationApiRow[];
+        setReservations(data.map(normalizeReservation));
+        setMeta(response.meta ?? {});
+      })
+      .catch((error) => {
+        const message = error?.response?.data?.message ?? 'No se pudo cargar el reporte de reservas.';
+        toast.error(Array.isArray(message) ? message.join(', ') : message);
+        if (active) {
+          setReservations([]);
+          setMeta({});
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
-    // Filtro por rango de fechas (sobre la fecha de creación)
-    const fecha = r.createdAt ? r.createdAt.slice(0, 10) : '';
-    const matchesInicio = !fechaInicio || (fecha && fecha >= fechaInicio);
-    const matchesFin = !fechaFin || (fecha && fecha <= fechaFin);
+    return () => { active = false; };
+  }, [estadoFilter, fecha, page]);
 
-    return matchesSearch && matchesEstado && matchesInicio && matchesFin;
-  });
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return reservations;
+    return reservations.filter((reservation) => [
+      reservation.codigo,
+      reservation.cliente,
+      reservation.pelicula,
+      reservation.estado,
+      reservation.metodoPago,
+    ].some((value) => value.toLowerCase().includes(term)));
+  }, [reservations, search]);
 
-  function exportCsv() {
-    if (filtered.length === 0) {
-      toast.info('No hay reservas para exportar');
-      return;
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const blob = await reportsService.exportReservationsCsv({
+        estado: estadoFilter || undefined,
+        fecha: fecha || undefined,
+      });
+      downloadBlob(blob, `reporte-reservas-${new Date().toISOString().slice(0, 10)}.csv`);
+      toast.success('Reporte de reservas descargado.');
+    } catch (error: unknown) {
+      const apiError = error && typeof error === 'object' ? error as { response?: { data?: { message?: string | string[] } } } : {};
+      const message = apiError.response?.data?.message ?? 'No se pudo exportar el reporte.';
+      toast.error(Array.isArray(message) ? message.join(', ') : message);
+    } finally {
+      setExporting(false);
     }
-
-    const headers = ['Codigo', 'Cliente', 'Pelicula', 'Funcion', 'Total', 'Estado', 'Fecha'];
-    const rows = filtered.map((r) => [
-      r.codigo ?? `#${r.id}`,
-      r.usuario?.name ?? '',
-      r.funcion?.pelicula?.titulo ?? (r.funcion_id ? funcionLabel(r.funcion_id) : ''),
-      formatDateTime(r.funcion?.fecha_hora),
-      r.total ?? 0,
-      r.estado,
-      formatDateTime(r.createdAt),
-    ]);
-
-    const totalImporte = filtered.reduce((sum, r) => sum + (r.total ?? 0), 0);
-
-    // Cabecera del documento con metadatos y filtros aplicados
-    const meta: string[][] = [
-      ['Reporte de Reservas'],
-      ['Generado', new Date().toLocaleString('es-MX')],
-      ['Estado', estadoFilter || 'Todos'],
-      ['Rango de fechas', `${fechaInicio || 'Inicio'} a ${fechaFin || 'Hoy'}`],
-      ['Total de reservas', String(filtered.length)],
-      [],
-    ];
-
-    const footer: string[][] = [
-      [],
-      ['', '', '', 'TOTAL', String(totalImporte), '', ''],
-    ];
-
-    // BOM (acentos en Excel) + 'sep=;' para forzar a Excel a separar por columnas
-    const csv = '﻿sep=' + CSV_DELIM + '\r\n' + [...meta, headers, ...rows, ...footer]
-      .map((row) => row.map(csvCell).join(CSV_DELIM))
-      .join('\r\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `reporte-reservas-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    toast.success(`${filtered.length} reserva${filtered.length !== 1 ? 's' : ''} exportada${filtered.length !== 1 ? 's' : ''}`);
   }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const totalPages = Math.max(1, meta.total_pages ?? 1);
+  const totalItems = meta.total_items ?? filtered.length;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Reporte de Reservas</h1>
-          <p className="text-sm text-zinc-400 mt-1">Consultar y filtrar reservas registradas</p>
+          <p className="text-sm text-zinc-400 mt-1">Consultar, filtrar y exportar reservas registradas</p>
         </div>
         <button
           onClick={exportCsv}
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+          disabled={exporting}
+          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
         >
-          <Download className="w-4 h-4" />
+          {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           Exportar CSV
         </button>
       </div>
 
-      {/* Table Card */}
       <div className="bg-zinc-950 border border-zinc-800/60 rounded-2xl overflow-hidden">
-        {/* Toolbar */}
         <div className="p-4 border-b border-zinc-800/60 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
               <input
                 type="text"
-                placeholder="Buscar código, cliente o película..."
+                placeholder="Buscar codigo, cliente o pelicula..."
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(event) => setSearch(event.target.value)}
                 className="pl-9 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/50 w-72"
               />
             </div>
             <select
               value={estadoFilter}
-              onChange={(e) => { setEstadoFilter(e.target.value as '' | Estado); setPage(1); }}
+              onChange={(event) => { setEstadoFilter(event.target.value as '' | Estado); setPage(1); }}
               className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 focus:outline-none focus:border-red-500/50"
             >
               <option value="">Todos los estados</option>
-              {ESTADOS.map((e) => (
-                <option key={e} value={e}>{e}</option>
-              ))}
+              {ESTADOS.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
             </select>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={fechaInicio}
-                max={fechaFin || undefined}
-                onChange={(e) => { setFechaInicio(e.target.value); setPage(1); }}
-                title="Fecha desde"
-                className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 focus:outline-none focus:border-red-500/50 [color-scheme:dark]"
-              />
-              <span className="text-zinc-600 text-sm">—</span>
-              <input
-                type="date"
-                value={fechaFin}
-                min={fechaInicio || undefined}
-                onChange={(e) => { setFechaFin(e.target.value); setPage(1); }}
-                title="Fecha hasta"
-                className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 focus:outline-none focus:border-red-500/50 [color-scheme:dark]"
-              />
-            </div>
-            {(fechaInicio || fechaFin) && (
+            <input
+              type="date"
+              value={fecha}
+              onChange={(event) => { setFecha(event.target.value); setPage(1); }}
+              title="Fecha de funcion"
+              className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 focus:outline-none focus:border-red-500/50 [color-scheme:dark]"
+            />
+            {(estadoFilter || fecha) && (
               <button
-                onClick={() => { setFechaInicio(''); setFechaFin(''); setPage(1); }}
+                onClick={() => { setEstadoFilter(''); setFecha(''); setPage(1); }}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-400 hover:text-red-400 transition-colors"
               >
                 <Trash className="w-3.5 h-3.5" />
-                Limpiar fechas
+                Limpiar filtros
               </button>
             )}
           </div>
-          <span className="text-xs text-zinc-500">{filtered.length} reserva{filtered.length !== 1 ? 's' : ''}</span>
+          <span className="text-xs text-zinc-500">{totalItems} reserva{totalItems !== 1 ? 's' : ''}</span>
         </div>
 
-        {/* Table */}
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800/60">
-              {['Código', 'Cliente', 'Función', 'Total', 'Estado', 'Fecha', ''].map((col, i) => (
-                <th key={i} className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800/40">
-            {paginated.length === 0 ? (
-              <tr>
-                <td colSpan={7}>
-                  <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <Ticket className="w-10 h-10 text-zinc-700" />
-                    <p className="text-sm text-zinc-500">No se encontraron reservas</p>
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-800/60">
+                {['Codigo', 'Cliente', 'Funcion', 'Total', 'Pago', 'Estado', 'Fecha', ''].map((col) => (
+                  <th key={col} className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">{col}</th>
+                ))}
               </tr>
-            ) : (
-              paginated.map((r) => (
-                <tr key={r.id} className="hover:bg-zinc-900/50 transition-colors">
-                  {/* Código */}
+            </thead>
+            <tbody className="divide-y divide-zinc-800/40">
+              {loading ? (
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-zinc-500"><Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />Cargando reservas...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-zinc-500">No se encontraron reservas</td></tr>
+              ) : filtered.map((reservation) => (
+                <tr key={reservation.id} className="hover:bg-zinc-900/50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-red-600/20 border border-red-500/20 flex items-center justify-center shrink-0">
                         <Ticket className="w-4 h-4 text-red-400" />
                       </div>
-                      <span className="font-medium text-zinc-100">{r.codigo ?? `#${r.id}`}</span>
+                      <span className="font-medium text-zinc-100">{reservation.codigo}</span>
                     </div>
                   </td>
-                  {/* Cliente */}
-                  <td className="px-4 py-3 text-zinc-300">{r.usuario?.name ?? '—'}</td>
-                  {/* Función */}
+                  <td className="px-4 py-3 text-zinc-300">{reservation.cliente}</td>
                   <td className="px-4 py-3 text-zinc-400">
                     <div className="flex items-center gap-1.5">
                       <Film className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
-                      <span className="truncate max-w-[220px]">
-                        {r.funcion?.pelicula?.titulo ?? (r.funcion_id ? funcionLabel(r.funcion_id) : '—')}
-                      </span>
+                      <span className="truncate max-w-[220px]">{reservation.pelicula}</span>
                     </div>
+                    <p className="text-xs text-zinc-600 mt-1">{formatDateTime(reservation.funcion)}</p>
                   </td>
                   {/* Total */}
                   <td className="px-4 py-3 text-zinc-300 font-medium">L{(r.total ?? 0).toLocaleString('es-MX')}</td>
@@ -292,29 +297,33 @@ export default function ReportsReservationsAdminPage() {
                       )}
                     </div>
                   </td>
+                  <td className="px-4 py-3">{estadoBadge(reservation.estado)}</td>
+                  <td className="px-4 py-3 text-zinc-500 text-xs">{formatDateTime(reservation.createdAt)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => setViewing(reservation)} title="Ver detalle" className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-1 px-4 py-4 border-t border-zinc-800/60">
             {[
-              { label: '«', target: 1 },
-              { label: '‹', target: page - 1 },
+              { label: '<<', target: 1 },
+              { label: '<', target: page - 1 },
               { label: String(page), target: page, active: true },
-              { label: '›', target: page + 1 },
-              { label: '»', target: totalPages },
+              { label: '>', target: page + 1 },
+              { label: '>>', target: totalPages },
             ].map(({ label, target, active }) => (
               <button
                 key={label}
                 onClick={() => setPage(Math.max(1, Math.min(totalPages, target)))}
                 disabled={target < 1 || target > totalPages || target === page}
-                className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                  active ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
-                }`}
+                className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${active ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'}`}
               >
                 {label}
               </button>
@@ -323,7 +332,6 @@ export default function ReportsReservationsAdminPage() {
         )}
       </div>
 
-      {/* Modal — Detalle de Reserva */}
       {viewing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-xl">
@@ -333,7 +341,7 @@ export default function ReportsReservationsAdminPage() {
                   <Ticket className="w-4 h-4 text-red-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-white leading-tight">{viewing.codigo ?? `Reserva #${viewing.id}`}</h2>
+                  <h2 className="text-lg font-semibold text-white leading-tight">{viewing.codigo}</h2>
                   <div className="mt-0.5">{estadoBadge(viewing.estado)}</div>
                 </div>
               </div>
@@ -341,36 +349,19 @@ export default function ReportsReservationsAdminPage() {
                 <Trash className="w-5 h-5" />
               </button>
             </div>
-
             <div className="px-6 py-5 space-y-3 text-sm">
-              <DetailRow icon={UserIcon} label="Cliente" value={viewing.usuario?.name ?? '—'} />
-              <DetailRow icon={Film} label="Película" value={viewing.funcion?.pelicula?.titulo ?? '—'} />
-              <DetailRow icon={Clock} label="Función" value={formatDateTime(viewing.funcion?.fecha_hora)} />
-              <DetailRow icon={Armchair} label="Asientos" value={viewing.asientos?.length ? String(viewing.asientos.length) : '—'} />
+              <DetailRow icon={UserIcon} label="Cliente" value={viewing.cliente} />
+              <DetailRow icon={Film} label="Pelicula" value={viewing.pelicula} />
+              <DetailRow icon={Clock} label="Funcion" value={formatDateTime(viewing.funcion)} />
+              <DetailRow icon={Armchair} label="Asientos" value={String(viewing.asientos)} />
               <DetailRow icon={CalendarClock} label="Creada" value={formatDateTime(viewing.createdAt)} />
               <div className="flex items-center justify-between pt-3 border-t border-zinc-800">
                 <span className="text-zinc-400">Total</span>
                 <span className="text-lg font-bold text-white">L{(viewing.total ?? 0).toLocaleString('es-MX')}</span>
               </div>
             </div>
-
-            <div className="flex justify-end gap-3 px-6 pb-5">
-              {viewing.estado !== 'CANCELADA' && (
-                <button
-                  onClick={() => updateEstado(viewing.id, 'CANCELADA')}
-                  className="px-4 py-2 rounded-xl text-sm font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors"
-                >
-                  Cancelar reserva
-                </button>
-              )}
-              {viewing.estado !== 'CONFIRMADA' && viewing.estado !== 'PAGADA' && viewing.estado !== 'CANCELADA' && (
-                <button
-                  onClick={() => updateEstado(viewing.id, 'CONFIRMADA')}
-                  className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
-                >
-                  Confirmar
-                </button>
-              )}
+            <div className="flex justify-end px-6 pb-5">
+              <button onClick={() => setViewing(null)} className="px-4 py-2 rounded-xl bg-zinc-800 text-zinc-200 hover:bg-zinc-700 text-sm font-medium transition-colors">Cerrar</button>
             </div>
           </div>
         </div>
@@ -381,12 +372,12 @@ export default function ReportsReservationsAdminPage() {
 
 function DetailRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="flex items-center gap-2 text-zinc-400">
-        <Icon className="w-3.5 h-3.5 text-zinc-600" />
+    <div className="flex items-center justify-between gap-4">
+      <span className="flex items-center gap-2 text-zinc-500">
+        <Icon className="w-4 h-4" />
         {label}
       </span>
-      <span className="text-zinc-200 font-medium text-right">{value}</span>
+      <span className="text-zinc-200 text-right">{value}</span>
     </div>
   );
 }
