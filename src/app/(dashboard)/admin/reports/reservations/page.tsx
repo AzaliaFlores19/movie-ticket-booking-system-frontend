@@ -33,6 +33,24 @@ type ReportMeta = {
   total_pages?: number;
 };
 
+type ReservationApiRow = {
+  id?: number | string;
+  numero_reserva?: string;
+  estado?: string;
+  id_usuario?: number | string;
+  usuarios?: { nombre?: string };
+  usuario?: { nombre?: string };
+  funciones?: {
+    fecha_hora?: string;
+    peliculas?: { titulo?: string };
+  };
+  reservaAsientos?: unknown[];
+  asientos?: unknown[];
+  pagos?: Array<{ monto_final?: number | string; metodo?: string; estado?: string }>;
+  created_at?: string;
+  createdAt?: string;
+};
+
 const ESTADO_STYLES: Record<string, string> = {
   PENDIENTE_DE_PAGO: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
   PENDIENTE: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
@@ -262,45 +280,20 @@ export default function ReportsReservationsAdminPage() {
                     <p className="text-xs text-zinc-600 mt-1">{formatDateTime(reservation.funcion)}</p>
                   </td>
                   {/* Total */}
-                  <td className="px-4 py-3 text-zinc-300 font-medium">L{(r.total ?? 0).toLocaleString('es-MX')}</td>
+                  <td className="px-4 py-3 text-zinc-300 font-medium">L{(reservation.total ?? 0).toLocaleString('es-MX')}</td>
+                  {/* Pago */}
+                  <td className="px-4 py-3 text-zinc-400">{reservation.metodoPago}</td>
                   {/* Estado */}
-                  <td className="px-4 py-3">{estadoBadge(r.estado)}</td>
-                  {/* Fecha */}
-                  <td className="px-4 py-3 text-zinc-500 text-xs">{formatDateTime(r.createdAt)}</td>
-                  {/* Acciones */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => setViewing(r)}
-                        title="Ver detalle"
-                        className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      {r.estado !== 'CONFIRMADA' && r.estado !== 'PAGADA' && r.estado !== 'CANCELADA' && (
-                        <button
-                          onClick={() => updateEstado(r.id, 'CONFIRMADA')}
-                          title="Confirmar"
-                          className="p-1.5 rounded-lg text-zinc-400 hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                        </button>
-                      )}
-                      {r.estado !== 'CANCELADA' && (
-                        <button
-                          onClick={() => updateEstado(r.id, 'CANCELADA')}
-                          title="Cancelar"
-                          className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-                        >
-                          <Trash className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
                   <td className="px-4 py-3">{estadoBadge(reservation.estado)}</td>
+                  {/* Fecha */}
                   <td className="px-4 py-3 text-zinc-500 text-xs">{formatDateTime(reservation.createdAt)}</td>
+                  {/* Acciones */}
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => setViewing(reservation)} title="Ver detalle" className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+                    <button
+                      onClick={() => setViewing(reservation)}
+                      title="Ver detalle"
+                      className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+                    >
                       <Eye className="w-4 h-4" />
                     </button>
                   </td>
