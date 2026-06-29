@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, Pencil, X, Monitor, AlertTriangle, Armchair, Loader2, Wrench } from 'lucide-react';
+import { Search, Plus, Pencil, X, Monitor, AlertTriangle, Armchair, Loader2, Wrench, Trash2, AlertCircle} from 'lucide-react';
 import { toast } from 'react-toastify';
 import { salasService, type SalaSeat, type SeatPhysicalStatus } from '@/services/salas.service';
 import { getCines } from '@/services/cinemas.service';
@@ -200,7 +200,7 @@ export default function SalasAdminPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState<FormState>(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
-
+  const [deletingSala, setDeletingSala] = useState<Sala | null>(null);
   const [editingSala, setEditingSala] = useState<Sala | null>(null);
   const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM);
   const [dimWarning, setDimWarning] = useState(false);
