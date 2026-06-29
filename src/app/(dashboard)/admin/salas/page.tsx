@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, Pencil, X, Monitor, AlertTriangle,Trash2,AlertCircle } from 'lucide-react';
+import { Search, Plus, Pencil, X, Monitor, AlertTriangle, Armchair, Loader2, Wrench } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { salasService } from '@/services/salas.service';
+import { salasService, type SalaSeat, type SeatPhysicalStatus } from '@/services/salas.service';
 import { getCines } from '@/services/cinemas.service';
 import type { Sala, Cine } from '@/types';
 
@@ -11,6 +11,7 @@ const PER_PAGE = 10;
 
 const EMPTY_FORM = { nombre: '', id_cine: '', filas: '', columnas: '', precio: '' };
 type FormState = typeof EMPTY_FORM;
+type SeatStatusDraft = Record<number, SeatPhysicalStatus>;
 
 const inputCls =
   'w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/60';
@@ -23,6 +24,141 @@ function toFormValues(sala: Sala): FormState {
     columnas: String(sala.columnas ?? ''),
     precio: String(sala.precio ?? ''),
   };
+}
+
+function getApiMessage(error: unknown, fallback: string) {
+  const response = (error as { response?: { data?: { message?: string | string[] } } }).response;
+  const message = response?.data?.message;
+  return Array.isArray(message) ? message.join(', ') : message || fallback;
+}
+
+function normalizeSeatStatus(status?: string): SeatPhysicalStatus {
+  return status === 'MANTENIMIENTO' ? 'MANTENIMIENTO' : 'ESTANDAR';
+}
+
+function seatStatusLabel(status?: string) {
+  return normalizeSeatStatus(status) === 'MANTENIMIENTO' ? 'Mantenimiento' : 'Disponible';
+}
+
+function groupSeatsByRow(seats: SalaSeat[]) {
+  const rows = new Map<string, SalaSeat[]>();
+  seats.forEach((seat) => {
+    const rowSeats = rows.get(seat.fila) ?? [];
+    rowSeats.push(seat);
+    rows.set(seat.fila, rowSeats);
+  });
+
+  return Array.from(rows.entries())
+    .sort(([rowA], [rowB]) => rowA.localeCompare(rowB, 'es', { numeric: true }))
+    .map(([row, rowSeats]) => ({
+      row,
+      seats: rowSeats.sort((a, b) => a.columna - b.columna),
+    }));
+}
+
+function SeatStatusPanel({
+  seats,
+  loading,
+  disabled,
+  pendingSeatStatuses,
+  onToggle,
+}: {
+  seats: SalaSeat[];
+  loading: boolean;
+  disabled: boolean;
+  pendingSeatStatuses: SeatStatusDraft;
+  onToggle: (seat: SalaSeat, nextStatus: SeatPhysicalStatus) => void;
+}) {
+  const groupedRows = groupSeatsByRow(seats);
+  const pendingCount = Object.keys(pendingSeatStatuses).length;
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-zinc-700/70 bg-zinc-950/70 shadow-inner shadow-black/20">
+      <div className="flex items-start justify-between gap-3 border-b border-zinc-800/70 px-4 py-4">
+        <div className="space-y-1">
+          <h3 className="text-base font-semibold text-zinc-50">Estado de asientos</h3>
+          <p className="text-xs leading-relaxed text-zinc-400">Selecciona asientos para cambiar su estado. Los cambios se aplican al guardar el modal.</p>
+        </div>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10">
+          <Armchair className="h-4 w-4 text-red-300" />
+        </div>
+      </div>
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 px-4 py-10 text-sm text-zinc-500">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Cargando asientos...
+        </div>
+      ) : seats.length === 0 ? (
+        <p className="px-4 py-10 text-center text-sm text-zinc-500">No hay asientos registrados para esta sala.</p>
+      ) : (
+        <div className="space-y-5 px-4 py-5">
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-300">
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5">
+              <span className="h-3 w-3 rounded-sm border border-emerald-300/70 bg-emerald-500/20" />
+              Disponible
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5">
+              <span className="h-3 w-3 rounded-sm border border-amber-300/70 bg-amber-500/20" />
+              Mantenimiento
+            </span>
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-red-200">
+                {pendingCount} cambio{pendingCount !== 1 ? 's' : ''} pendiente{pendingCount !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          <div className="max-h-80 overflow-auto rounded-2xl border border-zinc-800/70 bg-black/20 px-3 py-5 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+            <div className="mx-auto inline-flex min-w-full flex-col items-center gap-5">
+              <div className="flex w-72 flex-col items-center gap-1 sm:w-96">
+                <div className="h-1.5 w-full rounded-full bg-gradient-to-r from-transparent via-red-400/70 to-transparent shadow-[0_0_18px_rgba(248,113,113,0.35)]" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.32em] text-zinc-500">Pantalla</span>
+              </div>
+
+              <div className="inline-flex flex-col items-center gap-2">
+                {groupedRows.map(({ row, seats: rowSeats }) => (
+                  <div key={row} className="flex min-w-max items-center gap-3">
+                    <span className="flex h-9 w-7 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-xs font-semibold text-zinc-500">{row}</span>
+                    <div className="flex gap-2">
+                      {rowSeats.map((seat) => {
+                        const effectiveStatus = pendingSeatStatuses[seat.id] ?? normalizeSeatStatus(seat.estadoFisico);
+                        const isMaintenance = effectiveStatus === 'MANTENIMIENTO';
+                        const nextStatus: SeatPhysicalStatus = isMaintenance ? 'ESTANDAR' : 'MANTENIMIENTO';
+                        const isPending = pendingSeatStatuses[seat.id] != null;
+
+                        return (
+                          <button
+                            key={seat.id}
+                            type="button"
+                            title={`${seat.codigo}: ${seatStatusLabel(effectiveStatus)}${isPending ? ' (pendiente)' : ''}`}
+                            disabled={disabled}
+                            onClick={() => onToggle(seat, nextStatus)}
+                            className={`relative flex h-12 w-12 items-center justify-center rounded-xl border text-xs font-bold shadow-sm transition-all hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0 ${
+                              isMaintenance
+                                ? 'border-amber-300/70 bg-amber-500/15 text-amber-100 shadow-amber-950/30 hover:bg-amber-500/25'
+                                : 'border-emerald-300/70 bg-emerald-500/15 text-emerald-100 shadow-emerald-950/30 hover:bg-emerald-500/25'
+                            } ${isPending ? 'ring-2 ring-red-400/70 ring-offset-2 ring-offset-black/30' : ''}`}
+                          >
+                            {isPending && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.8)]" />}
+                            <span className="inline-flex items-center gap-1">
+                              {seat.codigo}
+                              {isMaintenance && <Wrench className="h-3 w-3" />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-center text-[11px] text-zinc-500">Click en un asiento para alternar su estado físico.</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
 }
 
 function SeatPreview({ filas, columnas }: { filas: number; columnas: number }) {
@@ -69,7 +205,9 @@ export default function SalasAdminPage() {
   const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM);
   const [dimWarning, setDimWarning] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [deletingSala, setDeletingSala] = useState<Sala | null>(null);
+  const [seatMap, setSeatMap] = useState<SalaSeat[]>([]);
+  const [loadingSeats, setLoadingSeats] = useState(false);
+  const [pendingSeatStatuses, setPendingSeatStatuses] = useState<SeatStatusDraft>({});
 
   useEffect(() => {
     let active = true;
@@ -84,10 +222,31 @@ export default function SalasAdminPage() {
     return () => { active = false; };
   }, []);
 
+  async function loadSeatMap(salaId: number) {
+    setLoadingSeats(true);
+    try {
+      const seats = await salasService.getSeats(salaId);
+      setSeatMap(seats);
+    } catch {
+      setSeatMap([]);
+      toast.error('No se pudieron cargar los asientos de la sala');
+    } finally {
+      setLoadingSeats(false);
+    }
+  }
+
+  function closeEditModal() {
+    setEditingSala(null);
+    setSeatMap([]);
+    setPendingSeatStatuses({});
+  }
+
   function openEdit(sala: Sala) {
     setEditingSala(sala);
     setEditForm(toFormValues(sala));
     setDimWarning(false);
+    setPendingSeatStatuses({});
+    void loadSeatMap(sala.id);
   }
 
   function handleDelete(sala: Sala) {
@@ -119,6 +278,19 @@ export default function SalasAdminPage() {
     setEditForm(newForm);
   }
 
+  function handleSeatStatusToggle(seat: SalaSeat, nextStatus: SeatPhysicalStatus) {
+    const originalStatus = normalizeSeatStatus(seat.estadoFisico);
+    setPendingSeatStatuses((prev) => {
+      const next = { ...prev };
+      if (nextStatus === originalStatus) {
+        delete next[seat.id];
+      } else {
+        next[seat.id] = nextStatus;
+      }
+      return next;
+    });
+  }
+
   async function handleCreateSubmit(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
@@ -135,9 +307,8 @@ export default function SalasAdminPage() {
       setShowCreate(false);
       setCreateForm(EMPTY_FORM);
       toast.success('Sala creada correctamente');
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(', ') : msg || 'Error al crear la sala');
+    } catch (err) {
+      toast.error(getApiMessage(err, 'Error al crear la sala'));
     } finally {
       setCreating(false);
     }
@@ -148,6 +319,7 @@ export default function SalasAdminPage() {
     if (!editingSala) return;
     setSaving(true);
     try {
+      const seatStatusEntries = Object.entries(pendingSeatStatuses);
       const updated = await salasService.update(editingSala.id, {
         nombre: editForm.nombre,
         id_cine: Number(editForm.id_cine),
@@ -155,6 +327,13 @@ export default function SalasAdminPage() {
         columnas: Number(editForm.columnas),
         precio: Number(editForm.precio),
       });
+      if (seatStatusEntries.length > 0) {
+        await Promise.all(
+          seatStatusEntries.map(([seatId, status]) =>
+            salasService.updateSeatStatus(editingSala.id, Number(seatId), status)
+          )
+        );
+      }
       const cine = cines.find((c) => c.id === Number(editForm.id_cine));
       setSalas((prev) =>
         prev.map((s) =>
@@ -163,14 +342,14 @@ export default function SalasAdminPage() {
             : s
         )
       );
-      setEditingSala(null);
-      toast.success('Sala actualizada correctamente');
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
+      closeEditModal();
+      toast.success(seatStatusEntries.length > 0 ? 'Sala y asientos actualizados correctamente' : 'Sala actualizada correctamente');
+    } catch (err) {
+      const msg = getApiMessage(err, 'Error al actualizar la sala');
       const isActiveFunctions = typeof msg === 'string' && msg.includes('funciones programadas');
       toast.error(isActiveFunctions
         ? 'No se pueden cambiar las dimensiones: la sala tiene funciones programadas activas.'
-        : Array.isArray(msg) ? msg.join(', ') : msg || 'Error al actualizar la sala'
+        : msg
       );
     } finally {
       setSaving(false);
@@ -378,7 +557,7 @@ export default function SalasAdminPage() {
       {/* Modal — Editar Sala */}
       {editingSala && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
             <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-800 sticky top-0 bg-zinc-900 z-10">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-red-600/20 border border-red-500/20 flex items-center justify-center">
@@ -386,7 +565,7 @@ export default function SalasAdminPage() {
                 </div>
                 <h2 className="text-lg font-semibold text-white">Editar Sala</h2>
               </div>
-              <button onClick={() => setEditingSala(null)} className="text-zinc-400 hover:text-white transition-colors">
+              <button onClick={closeEditModal} className="text-zinc-400 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -440,8 +619,15 @@ export default function SalasAdminPage() {
                   </span>
                 </div>
               )}
+              <SeatStatusPanel
+                seats={seatMap}
+                loading={loadingSeats}
+                disabled={saving}
+                pendingSeatStatuses={pendingSeatStatuses}
+                onToggle={handleSeatStatusToggle}
+              />
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setEditingSala(null)}
+                <button type="button" onClick={closeEditModal}
                   className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors">
                   Cancelar
                 </button>
