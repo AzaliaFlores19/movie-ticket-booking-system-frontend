@@ -17,6 +17,9 @@ import { BookingTimer } from "@/components/booking/BookingTimer";
 import { toast } from "react-toastify";
 import { couponsApi } from "@/services/coupons.service";
 import { functionsService } from "@/services/functions.service";
+import { authService } from "@/services/auth.service";
+import { paymentsService } from "@/services/payments.service";
+import { reservationsService } from "@/services/reservations.service";
 import type { Coupon, Funcion } from "@/types";
 
 type PaymentMethod = "TARJETA" | "EFECTIVO";
@@ -80,9 +83,6 @@ function validateCoupon(coupon: Coupon) {
   return null;
 }
 
-function createReservationNumber() {
-  return `RES-${Math.floor(100000 + Math.random() * 900000)}`;
-}
 
 function createPaymentReference() {
   return `SIM-${Date.now()}`;
@@ -97,7 +97,13 @@ function PaymentContent() {
   const router = useRouter();
 
   const funcionId = Number(params.get("funcionId"));
+  const reservaIdParam = Number(params.get("reservaId") ?? 0);
+  const clienteIdParam = Number(params.get("clienteId") ?? 0);
   const seats = (params.get("asientos") ?? params.get("seats"))?.split(",").filter(Boolean) ?? [];
+  const seatIds = (params.get("asientosFuncionIds") ?? "")
+    .split(",")
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
   const movie = params.get("movie") || "Película";
   const cine = params.get("cine") || "Cine";
   const sala = params.get("sala") || "Sala";
@@ -114,6 +120,7 @@ function PaymentContent() {
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [loading, setLoading] = useState(false);
+  const canPayCash = ["ADMIN", "RECEPCIONISTA"].includes(authService.getCurrentUser()?.role ?? "");
 
   useEffect(() => {
     if (!funcionId) return;
@@ -228,22 +235,51 @@ function PaymentContent() {
       }
     }
 
+    if (!reservaIdParam && seatIds.length === 0) {
+      toast.error("No se encontraron los asientos para crear la reserva.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await new Promise((res) => setTimeout(res, 1200));
+      const reservation = reservaIdParam
+        ? { reservaId: reservaIdParam, codigoTicket: "", estado: "PENDIENTE_DE_PAGO" }
+        : await reservationsService.create({
+            id_funcion: funcionId,
+            asientosFuncionIds: seatIds,
+            ...(clienteIdParam ? { id_usuario_cliente: clienteIdParam } : {}),
+          });
+
+      const reference = method === "TARJETA" ? createPaymentReference() : undefined;
+      const basePayload = {
+        id_reserva: reservation.reservaId,
+        ...(appliedCoupon?.id ? { id_cupon: appliedCoupon.id } : {}),
+        monto_original: Number(totalNum.toFixed(2)),
+        monto_descuento: Number(discount.toFixed(2)),
+        monto_final: Number(finalTotal.toFixed(2)),
+      };
+
+      const paymentResponse = method === "EFECTIVO"
+        ? await paymentsService.createCash(basePayload)
+        : await paymentsService.create({
+            ...basePayload,
+            metodo: "TARJETA",
+            estado: "APROBADO",
+            referencia_externa: reference,
+          });
 
       const result = {
         status: "success",
         reserva: {
-          numero_reserva: createReservationNumber(),
-          estado: "PAGADA",
+          numero_reserva: paymentResponse?.reserva?.numero_reserva ?? reservation.codigoTicket ?? `#${reservation.reservaId}`,
+          estado: paymentResponse?.reserva?.estado ?? "PAGADA",
         },
         pago: {
-          monto_final: finalTotal.toFixed(2),
+          monto_final: String(paymentResponse?.pago?.monto_final ?? finalTotal.toFixed(2)),
           metodo: method,
-          estado: "APROBADO",
-          referencia_externa: createPaymentReference(),
-          created_at: createIsoTimestamp(),
+          estado: paymentResponse?.pago?.estado ?? "APROBADO",
+          referencia_externa: paymentResponse?.pago?.referencia_externa ?? reference ?? `EFECTIVO-${reservation.reservaId}`,
+          created_at: paymentResponse?.pago?.created_at ?? createIsoTimestamp(),
           descuento: discount.toFixed(2),
           cupon: appliedCoupon?.codigo,
           ...(method === "EFECTIVO" && {
@@ -260,8 +296,10 @@ function PaymentContent() {
 
       sessionStorage.setItem("payment_result", JSON.stringify(result));
       router.push("/payment/result");
-    } catch {
-      toast.error("No pudimos procesar el pago. Intenta de nuevo.");
+    } catch (error: unknown) {
+      const apiError = error && typeof error === "object" ? error as { response?: { data?: { message?: string | string[] } }; message?: string } : {};
+      const message = apiError.response?.data?.message ?? apiError.message ?? "No pudimos procesar el pago. Intenta de nuevo.";
+      toast.error(Array.isArray(message) ? message.join(", ") : message);
       setLoading(false);
     }
   }
@@ -284,7 +322,7 @@ function PaymentContent() {
       icon: <Banknote className="h-4 w-4" />,
       desc: "Pago en taquilla",
     },
-  ];
+  ].filter((option) => option.id !== "EFECTIVO" || canPayCash);
 
   return (
     <MainLayout>
