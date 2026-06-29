@@ -152,7 +152,7 @@ export default function CitiesAdminPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800/60">
-              {['Ciudad', 'ID', 'Creacion', ''].map((column) => (
+              {['Ciudad',  'Creacion', ''].map((column) => (
                 <th key={column} className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                   {column}
                 </th>
@@ -183,7 +183,6 @@ export default function CitiesAdminPage() {
                       <span className="font-medium text-zinc-100">{city.nombre}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-zinc-400 font-mono">#{city.id}</td>
                   <td className="px-4 py-3 text-zinc-400">{formatCreatedAt(city.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">

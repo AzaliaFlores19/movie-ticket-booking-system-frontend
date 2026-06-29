@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { KeyRound, LogOut, Loader2, Eye, EyeOff, Edit2, ArrowLeft, Bell } from "lucide-react";
 import { AxiosError } from "axios";
 import { toast } from 'react-toastify';
-import { usersApi } from "@/services/user.service";
+import { getMyProfile, updateProfile, toggleNotifications, changePassword } from "@/services/user.service";
 import { authService } from "@/services/auth.service";
 import ProfileLayout from '@/components/layout/MainLayout';
 
@@ -33,19 +33,29 @@ export default function ProfilePage() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  const [userId, setUserId] = useState<number | null>(null);
+
+  const getInitials = (fullName: string) => {
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length === 0 || !parts[0]) return "U";
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  };
+
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
         setLoading(true);
-        const user = await usersApi.getProfile();
-        setName(user.name);
+        const { user } = await getMyProfile();
+        setUserId(user.id);
+        setName(user.nombre);
         setEmail(user.email);
-        setPhone(user.phone || "");
-        setRole(user.roleName || "CLIENTE");
-        
-        setNotificationsEnabled(!!user.notificationsEnabled);
-        
-        setBackupData({ name: user.name, email: user.email, phone: user.phone || "" });
+        setPhone(user.telefono || "");
+        setRole(user.roles?.nombre || "CLIENTE");
+
+        setNotificationsEnabled(!!user.notificaciones_activas);
+
+        setBackupData({ name: user.nombre, email: user.email, phone: user.telefono || "" });
       } catch (error) {
         if (error instanceof AxiosError && error.response?.status === 401) return;
         toast.error("Error al cargar la configuración del perfil.");
@@ -58,17 +68,15 @@ export default function ProfilePage() {
   }, []);
 
   const handleUpdateNotifications = async (nextState: boolean) => {
+    if (!userId) return;
     if (nextState === notificationsEnabled) return;
     
     setNotificationsEnabled(nextState);
     setIsUpdatingNotifications(true);
 
     try {
-      const response = await usersApi.updateNotifications(nextState);
-      if (response) {
-        setNotificationsEnabled(!!response.notificationsEnabled);
-        toast.success(nextState ? "Notificaciones activadas" : "Notificaciones desactivadas");
-      }
+      await toggleNotifications(userId);
+      toast.success(nextState ? "Notificaciones activadas" : "Notificaciones desactivadas");
     } catch (error) {
       console.error("Error al actualizar las notificaciones:", error);
       setNotificationsEnabled(!nextState); 
@@ -78,26 +86,24 @@ export default function ProfilePage() {
     }
   };
 
-  const getInitials = (fullName: string) => {
-    const parts = fullName.trim().split(/\s+/);
-    if (parts.length === 0 || !parts[0]) return "U";
-    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  };
-
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId) return;
     try {
       setUpdating(true);
-      
-      const updatedUser = await usersApi.updateProfile({ name, email, phone });
-      setName(updatedUser.name);
-      setEmail(updatedUser.email);
-      setPhone(updatedUser.phone || "");
-      
-      setBackupData({ name: updatedUser.name, email: updatedUser.email, phone: updatedUser.phone || "" }); 
+
+      await updateProfile(userId, { nombre: name, email, telefono: phone });
+
+      setBackupData({ name, email, phone }); 
       setIsEditing(false); 
       toast.success("¡Perfil actualizado con éxito!");
+
+      // RE-FETCH para asegurar que el estado local sea igual al del servidor
+      const { user } = await getMyProfile();
+      setName(user.nombre);
+      setEmail(user.email);
+      setPhone(user.telefono || "");
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error al actualizar la configuración.";
       toast.error(msg);
@@ -114,6 +120,7 @@ export default function ProfilePage() {
   };
 
   const handleUpdatePassword = async () => {
+    if (!userId) return;
     const passwordRegex = /^(?=.*[A-Z])(?=.*\d)[A-Za-z\d\W_]{8,}$/;
 
     if (!passwordRegex.test(passwords.newPass)) {
@@ -129,13 +136,14 @@ export default function ProfilePage() {
     try {
       setUpdating(true);
 
-      await usersApi.changePassword({ currentPassword: passwords.current, newPassword: passwords.newPass });
+      await changePassword(userId, { passwordActual: passwords.current, passwordNueva: passwords.newPass });
 
       toast.success("¡Contraseña cambiada con éxito!");
       setPasswords({ current: "", newPass: "", confirm: "" });
       setShowChangePassword(false);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error al restablecer la contraseña.";
+    } catch (err: any) {
+      // Intentar extraer mensaje específico del backend
+      const msg = err.response?.data?.message || err.message || "Error al cambiar la contraseña.";
       toast.error(msg);
     } finally {
       setUpdating(false);
@@ -145,6 +153,7 @@ export default function ProfilePage() {
   const handleSignOut = () => {
     authService.logout();
     router.push("/");
+    window.location.reload(); // Fuerza recarga para limpiar estado
   };
 
   const inputCls = "w-full px-4 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900/50 text-sm focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-zinc-100 transition-all disabled:bg-zinc-950 disabled:text-zinc-500 disabled:border-zinc-900 disabled:cursor-not-allowed";
@@ -167,7 +176,6 @@ export default function ProfilePage() {
       <div className="px-4 sm:px-6 lg:px-8 py-10 min-h-screen bg-[#0a0a0a] text-zinc-100">
         <div className="max-w-3xl mx-auto space-y-6">
           
-          {/* Botón superior para volver al inicio rápido */}
           <div className="flex justify-start">
             <button
               type="button"
@@ -179,7 +187,6 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          {/* Avatar Header */}
           <div className="flex flex-col items-center justify-center pt-2 space-y-3">
             <div className="w-24 h-24 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-lg text-2xl font-bold text-white relative group">
               <div className="absolute inset-0 rounded-full bg-red-600/10 blur-md opacity-70"></div>
@@ -188,7 +195,6 @@ export default function ProfilePage() {
             <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Configuración de cuenta</p>
           </div>
 
-          {/* CARD 1: INFORMACIÓN PERSONAL */}
           <form onSubmit={handleUpdateProfile} className="rounded-2xl border border-zinc-800/60 bg-zinc-950 p-6 lg:p-8 space-y-6 shadow-xl">
             <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
               <div>
@@ -245,7 +251,6 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={updating}
-                  //className="px-4 py-2 rounded-xl bg-red-600 "
                   className="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-all flex items-center gap-2 shadow-lg shadow-red-900/20"
                 >
                   {updating && <Loader2 className="w-3 h-3 animate-spin" />}
@@ -255,7 +260,6 @@ export default function ProfilePage() {
             )}
           </form>
 
-          {/* 🚀 NUEVA CARD 2: PREFERENCIAS DEL SISTEMA (NOTIFICACIONES) */}
           <div className="rounded-2xl border border-zinc-800/60 bg-zinc-950 p-6 lg:p-8 space-y-6 shadow-xl">
             <div className="border-b border-zinc-900 pb-4">
               <h2 className="text-lg font-bold text-white tracking-tight">Preferencias del Sistema</h2>
@@ -276,7 +280,6 @@ export default function ProfilePage() {
                   <Loader2 className="w-4 h-4 animate-spin text-red-500" />
                 )}
                 
-                {/* Switch de botones controlado */}
                 <div className="flex items-center bg-zinc-900 rounded-lg p-0.5 border border-zinc-800">
                   <button
                     type="button"
@@ -307,7 +310,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* CARD 3: CONFIGURACIÓN DE SEGURIDAD */}
           <div className="rounded-2xl border border-zinc-800/60 bg-zinc-950 p-6 lg:p-8 space-y-6 shadow-xl">
             <div className="border-b border-zinc-900 pb-4">
               <h2 className="text-lg font-bold text-white tracking-tight">Seguridad de Cuenta</h2>
@@ -331,7 +333,6 @@ export default function ProfilePage() {
             ) : (
               <div className="space-y-4 pt-2">
                 <div className="space-y-3">
-                  {/* Contraseña Actual */}
                   <div className="relative w-full">
                     <input
                       type={showCurrent ? "text" : "password"}
@@ -345,7 +346,6 @@ export default function ProfilePage() {
                     </button>
                   </div>
 
-                  {/* Nueva Contraseña */}
                   <div className="relative w-full">
                     <input
                       type={showNew ? "text" : "password"}
@@ -359,7 +359,6 @@ export default function ProfilePage() {
                     </button>
                   </div>
 
-                  {/* Confirmar Nueva Contraseña */}
                   <div className="relative w-full">
                     <input
                       type={showConfirm ? "text" : "password"}
@@ -399,7 +398,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* CERRAR SESIÓN */}
           <div className="flex justify-center pt-2">
             <button
               type="button"

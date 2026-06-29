@@ -37,3 +37,11 @@ export const citiesService = {
     await axios.delete(`/ciudades/${id}`);
   },
 };
+// Objeto para compatibilidad con componentes que usan el mock
+// Usamos Promise.resolve para asegurar que los métodos then/catch funcionen
+// export const citiesService = {
+//   getAll: () => Promise.resolve(MOCK_CITIES),
+//   create: () => Promise.resolve(),
+//   update: () => Promise.resolve(),
+//   delete: () => Promise.resolve(),
+// };
