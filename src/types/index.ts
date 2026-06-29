@@ -85,9 +85,13 @@ export interface Funcion {
   estado: string;
   precio?: number;
   pelicula_id?: number;
+  id_pelicula?: number;
   pelicula?: Movie;
+  peliculas?: Movie;
   sala_id?: number;
+  id_sala?: number;
   sala?: Sala;
+  salas?: Sala;
   cine?: Cine;
   createdAt?: string;
   updatedAt?: string;
