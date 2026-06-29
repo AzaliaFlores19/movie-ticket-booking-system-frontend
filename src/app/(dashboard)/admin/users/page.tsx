@@ -48,6 +48,7 @@ export default function UsersAdminPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
   const [page, setPage] = useState(1);
 
   const [activeIds, setActiveIds] = useState<Set<number>>(() => new Set());
@@ -243,11 +244,13 @@ export default function UsersAdminPage() {
     }
   }
 
-  const filtered = users.filter(
-    (u) =>
+  const filtered = users.filter((u) => {
+    const matchesSearch =
       u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
-  );
+      u.email.toLowerCase().includes(search.toLowerCase());
+    const matchesRole = !roleFilter || String(u.roleId) === roleFilter;
+    return matchesSearch && matchesRole;
+  });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -278,15 +281,29 @@ export default function UsersAdminPage() {
       {/* Table Card */}
       <div className="bg-zinc-950 border border-zinc-800/60 rounded-2xl overflow-hidden">
         <div className="p-4 border-b border-zinc-800/60 flex items-center justify-between">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Buscar usuarios..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="pl-9 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/50 w-64"
-            />
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Buscar usuarios..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="pl-9 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-red-500/50 w-64"
+              />
+            </div>
+            {!isReceptionist && (
+              <select
+                value={roleFilter}
+                onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
+                className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 focus:outline-none focus:border-red-500/50"
+              >
+                <option value="">Todos los roles</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            )}
           </div>
           <span className="text-xs text-zinc-500">{filtered.length} usuario{filtered.length !== 1 ? 's' : ''}</span>
         </div>
