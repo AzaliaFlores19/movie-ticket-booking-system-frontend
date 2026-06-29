@@ -15,7 +15,8 @@ export default function HomePage() {
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('');
-  const [selectedDate, setSelectedDate] = useState(''); 
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   
@@ -36,7 +37,8 @@ export default function HomePage() {
             ciudad_id: selectedCity || undefined,
             genero: selectedGenre || undefined,
             idioma: selectedLanguage || undefined,
-            fecha_inicio: selectedDate || undefined, // Mandamos la fecha seleccionada aquí
+            fecha_inicio: dateFrom || undefined,
+            fecha_fin: dateTo || undefined,
           }),
           citiesService.getAll().catch(() => []), // Salvaguardas por si fallan los otros endpoints
           genresService.getAll().catch(() => []),
@@ -55,17 +57,18 @@ export default function HomePage() {
     };
 
     fetchData();
-  }, [searchTerm, selectedCity, selectedGenre, selectedLanguage, selectedDate]); 
+  }, [searchTerm, selectedCity, selectedGenre, selectedLanguage, dateFrom, dateTo]); 
 
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedCity('');
     setSelectedGenre('');
     setSelectedLanguage('');
-    setSelectedDate(''); 
+    setDateFrom('');
+    setDateTo('');
   };
 
-  const hasFilters = searchTerm || selectedCity || selectedGenre || selectedLanguage || selectedDate;
+  const hasFilters = searchTerm || selectedCity || selectedGenre || selectedLanguage || dateFrom || dateTo;
   const selectedCityName = cities.find((c) => String(c.id) === selectedCity)?.nombre;
 
   return (
@@ -161,7 +164,7 @@ export default function HomePage() {
                 type="button"
                 onClick={() => setFiltersOpen(!filtersOpen)}
                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                  filtersOpen || selectedGenre || selectedLanguage || selectedDate
+                  filtersOpen || selectedGenre || selectedLanguage || dateFrom || dateTo
                     ? 'bg-red-600/20 text-red-400 border border-red-500/30'
                     : 'bg-[#1a1a1a] border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
                 }`}
@@ -173,7 +176,7 @@ export default function HomePage() {
 
             {/* Panel Desplegable de Filtros Especiales */}
             {filtersOpen && (
-              <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-[#121212]/95 backdrop-blur-xl border border-zinc-800 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2 duration-200 shadow-2xl z-40">
+              <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-[#121212]/95 backdrop-blur-xl border border-zinc-800 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200 shadow-2xl z-40">
                 <div>
                   <label className="text-xs font-semibold text-zinc-400 mb-2 block uppercase tracking-wider">Género</label>
                   <select value={selectedGenre} onChange={(e) => setSelectedGenre(e.target.value)}
@@ -192,17 +195,32 @@ export default function HomePage() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-zinc-400 mb-2 block uppercase tracking-wider">Fecha</label>
-                  <div className="relative flex items-center bg-[#1a1a1a] border border-zinc-800 rounded-lg px-3 py-2">
-                    <Calendar className="w-4 h-4 text-zinc-500 mr-2 shrink-0" />
-                    <input 
-                      type="date" 
-                      value={selectedDate} 
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="w-full bg-transparent text-sm outline-none text-white cursor-pointer"
-                      style={{ colorScheme: 'dark' }} 
-                    />
+                <div className="sm:col-span-2 grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-400 mb-2 block uppercase tracking-wider">Desde</label>
+                    <div className="relative flex items-center bg-[#1a1a1a] border border-zinc-800 rounded-lg px-3 py-2">
+                      <Calendar className="w-4 h-4 text-zinc-500 mr-2 shrink-0" />
+                      <input 
+                        type="date" 
+                        value={dateFrom} 
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="w-full bg-transparent text-sm outline-none text-white cursor-pointer"
+                        style={{ colorScheme: 'dark' }} 
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-400 mb-2 block uppercase tracking-wider">Hasta</label>
+                    <div className="relative flex items-center bg-[#1a1a1a] border border-zinc-800 rounded-lg px-3 py-2">
+                      <Calendar className="w-4 h-4 text-zinc-500 mr-2 shrink-0" />
+                      <input 
+                        type="date" 
+                        value={dateTo} 
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="w-full bg-transparent text-sm outline-none text-white cursor-pointer"
+                        style={{ colorScheme: 'dark' }} 
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -83,8 +83,10 @@ export interface Movie {
 
 export interface Funcion {
   id: number;
+  id_funcion: number;
   fecha_hora: string;
   estado: string;
+  estado_funcion: string;
   precio?: number;
   pelicula_id?: number;
   id_pelicula?: number;

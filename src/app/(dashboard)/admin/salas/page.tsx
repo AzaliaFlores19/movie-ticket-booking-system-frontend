@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, Pencil, X, Monitor, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Pencil, X, Monitor, AlertTriangle,Trash2,AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { salasService } from '@/services/salas.service';
 import { getCines } from '@/services/cinemas.service';
@@ -69,6 +69,7 @@ export default function SalasAdminPage() {
   const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM);
   const [dimWarning, setDimWarning] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingSala, setDeletingSala] = useState<Sala | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -87,6 +88,25 @@ export default function SalasAdminPage() {
     setEditingSala(sala);
     setEditForm(toFormValues(sala));
     setDimWarning(false);
+  }
+
+  function handleDelete(sala: Sala) {
+    setDeletingSala(sala);
+  }
+
+  async function confirmDelete() {
+    if (!deletingSala) return;
+    try {
+      await salasService.remove(deletingSala.id);
+      toast.success('Sala eliminada correctamente');
+      setDeletingSala(null);
+      setSalas((prev) => prev.filter((s) => s.id !== deletingSala.id));
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      toast.error(typeof msg === 'string' && msg.includes('funciones')
+        ? 'No se puede eliminar la sala porque tiene funciones programadas.'
+        : 'Error al eliminar la sala');
+    }
   }
 
   function handleEditChange(field: 'filas' | 'columnas', value: string) {
@@ -243,12 +263,18 @@ export default function SalasAdminPage() {
                     <td className="px-4 py-3 text-zinc-400">
                       {sala.precio != null ? `L${sala.precio.toLocaleString('es-MX')}` : '—'}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
                       <button
                         onClick={() => openEdit(sala)}
                         className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
                       >
                         <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(sala)}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-900/50 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
@@ -425,6 +451,40 @@ export default function SalasAdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal — Confirmar Eliminación */}
+      {deletingSala && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">¿Eliminar sala?</h3>
+                <p className="text-sm text-zinc-400 mt-1">
+                  Esta acción no se puede deshacer. ¿Deseas eliminar la sala "{deletingSala.nombre}"?
+                </p>
+              </div>
+              <div className="flex w-full gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeletingSala(null)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
+                  CANCELAR
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20"
+                >
+                  SÍ, ELIMINAR
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

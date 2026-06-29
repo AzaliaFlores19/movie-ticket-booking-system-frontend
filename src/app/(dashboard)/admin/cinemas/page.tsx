@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, Pencil, X, Building2, MapPin, Loader2 } from 'lucide-react';
+import { Search, Plus, Pencil, X, Building2, MapPin, Loader2, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getCines, createCine, updateCine, type Cine } from '@/services/cinemas.service';
+import { getCines, createCine, updateCine, deleteCine, type Cine } from '@/services/cinemas.service';
 import { citiesService } from '@/services/cities.service';
 import type { City } from '@/types'; 
 const PER_PAGE = 10;
@@ -31,6 +31,7 @@ export default function CinemasAdminPage() {
 
   const [editingCine, setEditingCine] = useState<Cine | null>(null);
   const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM);
+  const [deletingCine, setDeletingCine] = useState<Cine | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -55,6 +56,26 @@ export default function CinemasAdminPage() {
   function openEdit(cine: Cine) {
     setEditingCine(cine);
     setEditForm(toFormValues(cine));
+  }
+
+  function handleDelete(cine: Cine) {
+    setDeletingCine(cine);
+  }
+
+  async function confirmDelete() {
+    if (!deletingCine) return;
+    try {
+      await deleteCine(deletingCine.id);
+      toast.success('Cine eliminado correctamente');
+      setDeletingCine(null);
+      fetchData();
+    } catch (error: any) {
+      if (error.response?.status === 400 || error.response?.status === 409) {
+        toast.error('No se puede eliminar el cine porque tiene salas o funciones asociadas.');
+      } else {
+        toast.error('Error al eliminar el cine');
+      }
+    }
   }
 
   async function handleCreateSubmit(e: React.FormEvent) {
@@ -180,12 +201,18 @@ export default function CinemasAdminPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-zinc-400">{cine.ciudades?.nombre ?? '—'}</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
                         <button
                           onClick={() => openEdit(cine)}
                           className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
                         >
                           <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(cine)}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-900/50 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>
@@ -285,6 +312,40 @@ export default function CinemasAdminPage() {
                 <button type="submit" className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">Guardar</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal — Confirmar Eliminación */}
+      {deletingCine && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">¿Eliminar cine?</h3>
+                <p className="text-sm text-zinc-400 mt-1">
+                  Esta acción no se puede deshacer. ¿Deseas eliminar el cine "{deletingCine.nombre}"?
+                </p>
+              </div>
+              <div className="flex w-full gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeletingCine(null)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
+                  CANCELAR
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20"
+                >
+                  SÍ, ELIMINAR
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
