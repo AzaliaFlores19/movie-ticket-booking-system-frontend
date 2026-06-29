@@ -126,6 +126,8 @@ export interface AsientoFuncion {
 // Cliente devuelto por GET /admin/users (búsqueda para reservas de taquilla).
 export interface ClienteBusqueda {
   id: number;
+  // La API (Prisma) entrega la PK como `id_usuario`; se normaliza a `id`.
+  id_usuario?: number;
   nombre: string;
   email: string;
   telefono?: string | null;

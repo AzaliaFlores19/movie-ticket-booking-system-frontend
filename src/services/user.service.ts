@@ -41,7 +41,10 @@ export const usersApi = {
     try {
       const { data } = await axios.get('/admin/users');
       // El endpoint responde { message, total, data: [...] }.
-      const list = (Array.isArray(data) ? data : data?.data ?? []) as ClienteBusqueda[];
+      const raw = (Array.isArray(data) ? data : data?.data ?? []) as ClienteBusqueda[];
+      // La API (Prisma) usa `id_usuario` como PK; normalizamos a `id` para que
+      // la reserva pueda asignarse al cliente y no caiga en el usuario autenticado.
+      const list = raw.map((c) => ({ ...c, id: c.id ?? c.id_usuario }));
       if (!term) return list;
       return list.filter(
         (c) =>

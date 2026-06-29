@@ -98,6 +98,14 @@ function fnPrecio(f: Funcion): number | null {
   const p = f.precio ?? f.salas?.precio;
   return p != null ? Number(p) : null;
 }
+// La API (Prisma) devuelve `id_funcion`/`estado_funcion`; los datos mock usan
+// `id`/`estado`. Resolvemos ambos para no romper el enlace de "Reservar".
+function fnId(f: Funcion) {
+  return f.id_funcion ?? f.id;
+}
+function fnEstado(f: Funcion) {
+  return f.estado_funcion ?? f.estado;
+}
 
 function Dropdown({
   value,
@@ -296,7 +304,7 @@ export default function ReservationsAdminPage() {
   const availableFunctions = useMemo(() => {
     const now = Date.now();
     return funciones
-      .filter((f) => f.estado === 'DISPONIBLE' && new Date(f.fecha_hora).getTime() >= now)
+      .filter((f) => fnEstado(f) === 'DISPONIBLE' && new Date(f.fecha_hora).getTime() >= now)
       .sort((a, b) => new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime());
   }, [funciones]);
 
@@ -618,8 +626,9 @@ export default function ReservationsAdminPage() {
                   fPaginated.map((fn) => {
                     const movie = fnMovie(fn);
                     const precio = fnPrecio(fn);
+                    const funcionId = fnId(fn);
                     return (
-                    <tr key={fn.id} className="hover:bg-zinc-900/50 transition-colors">
+                    <tr key={funcionId} className="hover:bg-zinc-900/50 transition-colors">
                       <td className="px-4 py-3">
                         <div className="w-10 h-14 rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center shrink-0">
                           {movie?.poster_url ? (
@@ -658,9 +667,9 @@ export default function ReservationsAdminPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {movie?.id != null ? (
+                        {movie?.id != null && funcionId != null ? (
                           <Link
-                            href={`/movies/${movie.id}/book/${fn.id}`}
+                            href={`/movies/${movie.id}/book/${funcionId}`}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-500 transition-colors active:scale-95"
                           >
                             <Ticket className="w-3.5 h-3.5" />

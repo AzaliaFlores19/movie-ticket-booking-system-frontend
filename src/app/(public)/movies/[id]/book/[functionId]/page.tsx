@@ -268,10 +268,18 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
       // 2) Reserva formal (cliente o staff). Si hay un cliente seleccionado
       //    (solo staff) se envía su id; de lo contrario el backend usa el id del
       //    usuario autenticado, dejando la reserva a su propio nombre.
+      const clienteId = isStaff ? selectedClient?.id ?? selectedClient?.id_usuario : undefined;
+      // Si se eligió un cliente pero no pudimos resolver su id, abortamos en vez de
+      // crear la reserva a nombre del staff por error.
+      if (isStaff && selectedClient && clienteId == null) {
+        toast.error('No se pudo identificar al cliente seleccionado. Vuelve a elegirlo.');
+        setSubmitting(false);
+        return;
+      }
       const res = await reservationsService.create({
         id_funcion: funcionId,
         asientosFuncionIds: selected,
-        ...(isStaff && selectedClient ? { id_usuario_cliente: selectedClient.id } : {}),
+        ...(clienteId != null ? { id_usuario_cliente: clienteId } : {}),
       });
 
       // 3) Con la reserva ya creada, mostramos la página de pago/checkout
