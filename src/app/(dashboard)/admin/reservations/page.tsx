@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Search, Film, X, ChevronDown, Check, Clock, Building2, CalendarClock,
-  Ticket, ChevronRight, User, Armchair, Ban, AlertCircle,
+  Ticket, ChevronRight, User, Armchair, Ban, AlertCircle, ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
@@ -11,7 +11,9 @@ import { es } from 'date-fns/locale';
 import { toast } from 'react-toastify';
 import { functionsService } from '@/services/functions.service';
 import { reservationsService } from '@/services/reservations.service';
+import { policiesApi } from '@/services/policies.service';
 import { Funcion, Reservation } from '@/types';
+import type { CancellationPolicy } from '@/types';
 
 const PER_PAGE = 8;
 
@@ -37,11 +39,42 @@ function statusStyle(estado: string) {
   return STATUS_STYLES[estado] ?? 'bg-zinc-600/20 text-zinc-400 border-zinc-500/30';
 }
 
+function getMovieTitle(r: Reservation) {
+  return r.funciones?.peliculas?.titulo ?? r.funcion?.pelicula?.titulo;
+}
+function getFechaHora(r: Reservation) {
+  return r.funciones?.fecha_hora ?? r.funcion?.fecha_hora;
+}
+function getCineName(r: Reservation) {
+  return r.funciones?.salas?.cines?.nombre ?? r.funciones?.cine ?? r.funcion?.cine?.nombre;
+}
+function getCodigo(r: Reservation) {
+  return r.numero_reserva ?? r.codigo ?? `#${r.id}`;
+}
 function seatLabels(r: Reservation) {
+  if (r.reservaAsientos?.length) {
+    return r.reservaAsientos
+      .map((a) => a.asientosfuncion?.asientos?.codigo ?? `${a.asientosfuncion?.asientos?.fila ?? ''}${a.asientosfuncion?.asientos?.columna ?? ''}`)
+      .filter(Boolean)
+      .sort()
+      .join(', ');
+  }
   return (r.asientos ?? [])
     .map((a) => `${a.asiento.fila}${a.asiento.columna}`)
     .sort()
     .join(', ');
+}
+
+function getUsuarioName(r: Reservation) {
+  return r.usuario?.nombre ?? r.usuario?.name;
+}
+function getTotal(r: Reservation): number | null {
+  const t = Number(r.total ?? 0);
+  if (t > 0) return t;
+  const seats = r.reservaAsientos?.length ?? 0;
+  const precio = Number(r.funciones?.precio ?? r.funciones?.salas?.precio ?? 0);
+  if (seats > 0 && precio > 0) return seats * precio;
+  return null;
 }
 
 function formatDateLabel(dateStr: string) {
@@ -139,6 +172,8 @@ export default function ReservationsAdminPage() {
   // --- Cancelación ---
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [cancelStep, setCancelStep] = useState<1 | 2>(1);
+  const [policies, setPolicies] = useState<CancellationPolicy[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -152,8 +187,40 @@ export default function ReservationsAdminPage() {
       .then((data) => { if (active) setFunciones(data); })
       .catch(() => { if (active) setFunciones([]); })
       .finally(() => { if (active) setLoadingFunctions(false); });
+    policiesApi.getAll().then((data) => { if (active) setPolicies(data); }).catch(() => {});
     return () => { active = false; };
   }, []);
+
+  const cancelTarget = reservations.find((r) => r.id === cancelId) ?? null;
+
+  const horasRestantes = useMemo(() => {
+    const fh = cancelTarget ? getFechaHora(cancelTarget) : null;
+    if (!fh) return null;
+    return (new Date(fh).getTime() - Date.now()) / 3_600_000;
+  }, [cancelTarget, reservations]);
+
+  const activePolicy = useMemo(() => {
+    if (horasRestantes == null) return null;
+    return policies.find((p) => {
+      const min = p.horas_antes_minimo;
+      const max = p.horas_antes_maximo;
+      return horasRestantes >= min && (max == null || max === 0 || horasRestantes < max);
+    }) ?? null;
+  }, [horasRestantes, policies]);
+
+  const refundAmount = useMemo(() => {
+    if (!activePolicy || !cancelTarget) return 0;
+    return Math.round((getTotal(cancelTarget) ?? 0) * activePolicy.porcentaje_reembolso / 100);
+  }, [activePolicy, cancelTarget]);
+
+  function openCancelModal(id: number) {
+    setCancelId(id);
+    setCancelStep(1);
+  }
+  function closeCancel() {
+    setCancelId(null);
+    setCancelStep(1);
+  }
 
   // ───────────────────────── Pestaña: Reservas ─────────────────────────
 
@@ -165,13 +232,13 @@ export default function ReservationsAdminPage() {
   const filteredReservations = useMemo(() => {
     const sorted = [...reservations].sort(
       (a, b) =>
-        new Date(b.funcion?.fecha_hora ?? 0).getTime() -
-        new Date(a.funcion?.fecha_hora ?? 0).getTime()
+        new Date(getFechaHora(b) ?? 0).getTime() -
+        new Date(getFechaHora(a) ?? 0).getTime()
     );
     return sorted.filter((r) => {
       if (rEstado && r.estado !== rEstado) return false;
       if (rSearch) {
-        const haystack = [r.codigo, r.usuario?.name, r.usuario?.email, r.funcion?.pelicula?.titulo]
+        const haystack = [getCodigo(r), getUsuarioName(r), r.usuario?.email, getMovieTitle(r)]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
@@ -186,8 +253,6 @@ export default function ReservationsAdminPage() {
   const rPaginated = filteredReservations.slice((rCurrentPage - 1) * PER_PAGE, rCurrentPage * PER_PAGE);
   const rHasFilters = rSearch || rEstado;
 
-  const cancelTarget = reservations.find((r) => r.id === cancelId) ?? null;
-
   const handleCancel = async () => {
     if (cancelId == null) return;
     setCancelling(true);
@@ -196,8 +261,11 @@ export default function ReservationsAdminPage() {
       setReservations((prev) =>
         prev.map((r) => (r.id === cancelId ? { ...r, estado: 'CANCELADA' } : r))
       );
-      toast.success('Reserva cancelada correctamente');
-      setCancelId(null);
+      const msg = refundAmount > 0
+        ? `Reserva cancelada. Se reembolsarán L${refundAmount.toLocaleString('es-MX')}.`
+        : 'Reserva cancelada correctamente.';
+      toast.success(msg);
+      closeCancel();
     } catch {
       toast.error('No se pudo cancelar la reserva');
     } finally {
@@ -379,28 +447,28 @@ export default function ReservationsAdminPage() {
                     return (
                       <tr key={r.id} className="hover:bg-zinc-900/50 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs text-zinc-300">
-                          {r.codigo ?? `#${r.id}`}
+                          {getCodigo(r)}
                         </td>
                         <td className="px-4 py-3">
                           <span className="inline-flex items-center gap-1.5 text-zinc-100">
                             <User className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-                            {r.usuario?.name ?? '—'}
+                            {getUsuarioName(r) ?? '—'}
                           </span>
                         </td>
                         <td className="px-4 py-3 font-medium text-zinc-100">
-                          {r.funcion?.pelicula?.titulo ?? '—'}
+                          {getMovieTitle(r) ?? '—'}
                         </td>
                         <td className="px-4 py-3 text-zinc-400">
-                          {r.funcion?.fecha_hora ? (
+                          {getFechaHora(r) ? (
                             <span className="inline-flex flex-col">
-                              <span className="text-zinc-300">{formatDateLabel(r.funcion.fecha_hora)}</span>
+                              <span className="text-zinc-300">{formatDateLabel(getFechaHora(r)!)}</span>
                               <span className="inline-flex items-center gap-1 text-xs text-zinc-500">
                                 <Clock className="w-3 h-3 text-red-500 shrink-0" />
-                                {format(parseISO(r.funcion.fecha_hora), 'h:mm a')}
-                                {r.funcion.cine?.nombre && (
+                                {format(parseISO(getFechaHora(r)!), 'h:mm a')}
+                                {getCineName(r) && (
                                   <>
                                     <Building2 className="w-3 h-3 ml-1.5 shrink-0" />
-                                    {r.funcion.cine.nombre}
+                                    {getCineName(r)}
                                   </>
                                 )}
                               </span>
@@ -414,7 +482,7 @@ export default function ReservationsAdminPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 font-semibold text-zinc-100">
-                          ${(r.total ?? 0).toLocaleString('es-MX')}
+                          {(() => { const t = getTotal(r); return t != null ? `L${t.toLocaleString('es-MX')}` : '—'; })()}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${statusStyle(r.estado)}`}>
@@ -424,7 +492,7 @@ export default function ReservationsAdminPage() {
                         <td className="px-4 py-3 text-right">
                           {canCancel ? (
                             <button
-                              onClick={() => setCancelId(r.id)}
+                              onClick={() => openCancelModal(r.id)}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 border border-red-500/30 hover:bg-red-600/10 transition-colors active:scale-95"
                             >
                               <Ban className="w-3.5 h-3.5" />
@@ -562,7 +630,7 @@ export default function ReservationsAdminPage() {
                       </td>
                       <td className="px-4 py-3 text-zinc-400">{fn.sala?.nombre ?? '—'}</td>
                       <td className="px-4 py-3 font-semibold text-zinc-100">
-                        {fn.precio != null ? `$${fn.precio.toLocaleString('es-MX')}` : '—'}
+                        {fn.precio != null ? `L${fn.precio.toLocaleString('es-MX')}` : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-600/20 text-green-400 border border-green-500/30">
@@ -600,40 +668,84 @@ export default function ReservationsAdminPage() {
       {cancelTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex flex-col items-center text-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">¿Cancelar reserva?</h3>
-                <p className="text-sm text-zinc-400 mt-1">
-                  Se cancelará la reserva{' '}
-                  <span className="font-semibold text-zinc-200">{cancelTarget.codigo ?? `#${cancelTarget.id}`}</span>
-                  {cancelTarget.usuario?.name && (
-                    <> de <span className="font-semibold text-zinc-200">{cancelTarget.usuario.name}</span></>
+            {cancelStep === 1 ? (
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Política de cancelación</h3>
+                  {activePolicy ? (
+                    <p className="text-sm text-zinc-400 mt-1">
+                      Cancelando con{' '}
+                      <span className="font-semibold text-zinc-200">
+                        {horasRestantes != null ? `${Math.floor(horasRestantes)}h` : '—'}
+                      </span>{' '}
+                      de anticipación. Se aplica un reembolso del{' '}
+                      <span className="font-semibold text-green-400">{activePolicy.porcentaje_reembolso}%</span>
+                      {refundAmount > 0 && (
+                        <> ({`L${refundAmount.toLocaleString('es-MX')}`})</>
+                      )}.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-zinc-400 mt-1">No aplica ninguna política de reembolso.</p>
                   )}
-                  {' '}para{' '}
-                  <span className="font-semibold text-zinc-200">{cancelTarget.funcion?.pelicula?.titulo ?? 'la función'}</span>.
-                  Esta acción no se puede deshacer.
-                </p>
+                </div>
+                <div className="flex w-full gap-3 mt-2">
+                  <button
+                    onClick={closeCancel}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                  >
+                    VOLVER
+                  </button>
+                  <button
+                    onClick={() => setCancelStep(2)}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors"
+                  >
+                    CONTINUAR
+                  </button>
+                </div>
               </div>
-              <div className="flex w-full gap-3 mt-2">
-                <button
-                  onClick={() => setCancelId(null)}
-                  disabled={cancelling}
-                  className="flex-1 py-2 rounded-xl text-xs font-bold text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors disabled:opacity-50"
-                >
-                  VOLVER
-                </button>
-                <button
-                  onClick={handleCancel}
-                  disabled={cancelling}
-                  className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50"
-                >
-                  {cancelling ? 'CANCELANDO...' : 'SÍ, CANCELAR'}
-                </button>
+            ) : (
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">¿Cancelar reserva?</h3>
+                  <p className="text-sm text-zinc-400 mt-1">
+                    Se cancelará la reserva{' '}
+                    <span className="font-semibold text-zinc-200">{getCodigo(cancelTarget)}</span>
+                    {getUsuarioName(cancelTarget) && (
+                      <> de <span className="font-semibold text-zinc-200">{getUsuarioName(cancelTarget)}</span></>
+                    )}
+                    {' '}para{' '}
+                    <span className="font-semibold text-zinc-200">{getMovieTitle(cancelTarget) ?? 'la función'}</span>.
+                    {' '}Reembolso:{' '}
+                    <span className="font-semibold text-zinc-200">
+                      {refundAmount > 0 ? `L${refundAmount.toLocaleString('es-MX')}` : 'Sin reembolso'}
+                    </span>.
+                    Esta acción no se puede deshacer.
+                  </p>
+                </div>
+                <div className="flex w-full gap-3 mt-2">
+                  <button
+                    onClick={() => setCancelStep(1)}
+                    disabled={cancelling}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors disabled:opacity-50"
+                  >
+                    VOLVER
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    disabled={cancelling}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    {cancelling ? 'CANCELANDO...' : 'SÍ, CANCELAR'}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

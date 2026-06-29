@@ -15,7 +15,7 @@ import {
 import MainLayout from "@/components/layout/MainLayout";
 import { BookingTimer } from "@/components/booking/BookingTimer";
 import { toast } from "react-toastify";
-import { MOCK_COUPONS } from "@/lib/mock-data";
+import { couponsApi } from "@/services/coupons.service";
 import { functionsService } from "@/services/functions.service";
 import type { Coupon, Funcion } from "@/types";
 
@@ -188,29 +188,22 @@ function PaymentContent() {
       toast.error("Ingresa un codigo de cupon.");
       return;
     }
-
-    let coupon = MOCK_COUPONS.find((item) => item.codigo.toUpperCase() === code);
-
     try {
-      coupon = await couponsApi.getCouponByCode(code);
-    } catch {
-      // Sin backend real todavia, usamos los cupones mock del proyecto.
+      const result = await couponsApi.validate(code);
+      const coupon: Coupon = {
+        id: result.id,
+        codigo: result.codigo,
+        tipo: result.tipo,
+        valor: result.valor,
+        activo: true,
+      };
+      setAppliedCoupon(coupon);
+      setCouponCode(result.codigo);
+      toast.success(`Cupón ${result.codigo} aplicado.`);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(', ') : msg || 'Cupón no encontrado o inválido.');
     }
-
-    if (!coupon) {
-      toast.error("Cupon no encontrado.");
-      return;
-    }
-
-    const validationError = validateCoupon(coupon);
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
-
-    setAppliedCoupon(coupon);
-    setCouponCode(coupon.codigo);
-    toast.success(`Cupon ${coupon.codigo} aplicado.`);
   }
 
   function removeCoupon() {

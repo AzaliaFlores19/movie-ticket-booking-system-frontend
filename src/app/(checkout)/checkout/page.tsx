@@ -132,12 +132,12 @@ function CheckoutContent() {
               {precio > 0 && (
                 <div className="flex justify-between text-zinc-400">
                   <span>Precio por boleto</span>
-                  <span className="text-zinc-100">${precio.toLocaleString('es-MX')}</span>
+                  <span className="text-zinc-100">L{precio.toLocaleString('es-MX')}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-bold text-white border-t border-zinc-800/60 pt-2 mt-2">
                 <span>A pagar</span>
-                <span>${total.toLocaleString('es-MX')}</span>
+                <span>L{total.toLocaleString('es-MX')}</span>
               </div>
             </div>
             <button

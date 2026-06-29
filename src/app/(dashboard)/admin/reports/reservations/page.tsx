@@ -257,7 +257,7 @@ export default function ReportsReservationsAdminPage() {
                     </div>
                   </td>
                   {/* Total */}
-                  <td className="px-4 py-3 text-zinc-300 font-medium">${(r.total ?? 0).toLocaleString('es-MX')}</td>
+                  <td className="px-4 py-3 text-zinc-300 font-medium">L{(r.total ?? 0).toLocaleString('es-MX')}</td>
                   {/* Estado */}
                   <td className="px-4 py-3">{estadoBadge(r.estado)}</td>
                   {/* Fecha */}
@@ -350,7 +350,7 @@ export default function ReportsReservationsAdminPage() {
               <DetailRow icon={CalendarClock} label="Creada" value={formatDateTime(viewing.createdAt)} />
               <div className="flex items-center justify-between pt-3 border-t border-zinc-800">
                 <span className="text-zinc-400">Total</span>
-                <span className="text-lg font-bold text-white">${(viewing.total ?? 0).toLocaleString('es-MX')}</span>
+                <span className="text-lg font-bold text-white">L{(viewing.total ?? 0).toLocaleString('es-MX')}</span>
               </div>
             </div>
 

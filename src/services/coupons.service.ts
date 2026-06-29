@@ -1,34 +1,45 @@
 import axiosInstance from '@/lib/axios';
-import { Coupon, CouponFilters, PaginatedResponse } from '@/types';
+import type { Coupon } from '@/types';
 
 export const couponsApi = {
-  getCoupons: async (params?: CouponFilters) => {
-    const response = await axiosInstance.get<PaginatedResponse<Coupon>>('/cupones', { params });
-    return response.data;
+  async getAll(): Promise<Coupon[]> {
+    const { data } = await axiosInstance.get('/cupones');
+    return Array.isArray(data) ? data : (data.data ?? []);
   },
 
-  getCouponByCode: async (code: string) => {
-    const response = await axiosInstance.get<Coupon>(`/cupones/codigo/${code}`);
-    return response.data;
+  async create(payload: {
+    codigo: string;
+    tipo: string;
+    valor: number;
+    fecha_expiracion: string;
+    usos_maximos?: number;
+  }): Promise<Coupon> {
+    const { data } = await axiosInstance.post('/cupones', payload);
+    return data;
   },
 
-  createCoupon: async (coupon: Omit<Coupon, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const response = await axiosInstance.post<Coupon>('/cupones', coupon);
-    return response.data;
+  async update(id: number, payload: {
+    codigo?: string;
+    tipo?: string;
+    valor?: number;
+    fecha_expiracion?: string;
+    usos_maximos?: number;
+  }): Promise<Coupon> {
+    const { data } = await axiosInstance.put(`/cupones/${id}`, payload);
+    return data;
   },
 
-  updateCoupon: async (id: number, coupon: Partial<Coupon>) => {
-    const response = await axiosInstance.put<Coupon>(`/cupones/${id}`, coupon);
-    return response.data;
+  async delete(id: number): Promise<void> {
+    await axiosInstance.delete(`/cupones/${id}`);
   },
 
-  deleteCoupon: async (id: number) => {
-    const response = await axiosInstance.delete(`/cupones/${id}`);
-    return response.data;
+  async toggleStatus(id: number): Promise<Coupon> {
+    const { data } = await axiosInstance.patch(`/cupones/${id}/status`);
+    return data;
   },
 
-  toggleStatus: async (id: number) => {
-    const response = await axiosInstance.patch<Coupon>(`/cupones/${id}/toggle`);
-    return response.data;
-  }
+  async validate(codigo: string): Promise<{ valido: boolean; id: number; codigo: string; tipo: string; valor: number; message: string }> {
+    const { data } = await axiosInstance.post('/cupones/validar', { codigo });
+    return data;
+  },
 };

@@ -55,6 +55,7 @@ export interface Sala {
   tipo?: string;
   filas?: number;
   columnas?: number;
+  precio?: number;
   cine_id?: number;
   id_cine?: number;
   cine?: Pick<Cine, 'id' | 'nombre'>;
@@ -75,6 +76,7 @@ export interface Movie {
   id_idioma?: number;
   idioma?: Language;
   estado?: string;
+  activo?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -113,13 +115,38 @@ export interface AsientoFuncion {
   asiento: Asiento;
 }
 
+export interface ReservaFuncion {
+  id: number;
+  fecha_hora: string;
+  estado?: string;
+  precio?: number;
+  cine?: string;
+  ubicacion?: string;
+  peliculas?: { id?: number; titulo?: string; poster_url?: string };
+  salas?: { nombre?: string; precio?: number; cines?: { nombre?: string; direccion?: string } };
+}
+
+export interface ReservaAsiento {
+  id: number;
+  asientosfuncion?: {
+    asientos?: { id?: number; codigo?: string; fila?: string; columna?: number };
+  };
+}
+
 export interface Reservation {
   id: number;
+  // API field names
+  numero_reserva?: string;
+  id_usuario?: number;
+  id_funcion?: number;
+  funciones?: ReservaFuncion;
+  reservaAsientos?: ReservaAsiento[];
+  // Legacy field names (mock / older integration)
   codigo?: string;
   estado: string;
   total?: number;
   usuario_id?: number;
-  usuario?: User;
+  usuario?: User & { nombre?: string; telefono?: string };
   funcion_id?: number;
   funcion?: Funcion;
   asientos?: AsientoFuncion[];
@@ -158,7 +185,9 @@ export interface Coupon {
   valor: number;
   fecha_inicio?: string;
   fecha_fin?: string;
+  fecha_expiracion?: string;
   usos_maximo?: number;
+  usos_maximos?: number;
   usos_actuales?: number;
   activo?: boolean;
   createdAt?: string;
@@ -167,13 +196,9 @@ export interface Coupon {
 
 export interface CancellationPolicy {
   id: number;
-  nombre: string;
-  descripcion?: string;
-  horas_limite: number;
+  horas_antes_minimo: number;
+  horas_antes_maximo?: number | null;
   porcentaje_reembolso: number;
-  activo?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 export interface ReportFilters {
