@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Search, Plus, X, Pencil, Upload, Film } from 'lucide-react';
+import { Search, Plus, X, Pencil, Upload, Film, Trash2, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
 import { moviesService } from '@/services/movies.service';
@@ -198,6 +198,7 @@ export default function MoviesAdminPage() {
   const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM);
   const [editPosterFile, setEditPosterFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deletingMovie, setDeletingMovie] = useState<Movie | null>(null);
 
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
@@ -232,6 +233,22 @@ export default function MoviesAdminPage() {
       toast.error('No se pudo cambiar el estado');
     } finally {
       setTogglingId(null);
+    }
+  }
+
+  function handleDelete(movie: Movie) {
+    setDeletingMovie(movie);
+  }
+
+  async function confirmDelete() {
+    if (!deletingMovie) return;
+    try {
+      await moviesService.delete(deletingMovie.id);
+      setMovies((prev) => prev.filter((m) => m.id !== deletingMovie.id));
+      toast.success('Película eliminada correctamente');
+      setDeletingMovie(null);
+    } catch {
+      toast.error('No se pudo eliminar la película');
     }
   }
 
@@ -430,12 +447,18 @@ export default function MoviesAdminPage() {
                         </span>
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
                       <button
                         onClick={() => openEdit(movie)}
                         className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
                       >
                         <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(movie)}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-900/50 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
@@ -531,6 +554,38 @@ export default function MoviesAdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal — Confirmar Eliminación */}
+      {deletingMovie && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">¿Eliminar película?</h3>
+                <p className="text-sm text-zinc-400 mt-1">
+                  Esta acción no se puede deshacer. ¿Deseas eliminar "{deletingMovie.titulo}"?
+                </p>
+              </div>
+              <div className="flex w-full gap-3 mt-2">
+                <button
+                  onClick={() => setDeletingMovie(null)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
+                  CANCELAR
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20"
+                >
+                  SÍ, ELIMINAR
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

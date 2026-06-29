@@ -7,7 +7,7 @@ import { moviesService } from '@/services/movies.service';
 import { citiesService } from '@/services/cities.service';
 import { Calendar, Clock, MapPin, Film, ChevronRight, ArrowLeft, Loader2, Building2 } from 'lucide-react';
 import Link from 'next/link';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Movie, Cine, Funcion, City } from '@/types';
 
@@ -51,10 +51,13 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
   const handleCineSelect = async (cineId: number) => {
     setSelectedCine(cineId);
     setLoadingFunciones(true);
+    console.log(`Cargando funciones para película ${id} y cine ${cineId}`);
     try {
       const res = await moviesService.getFunciones(id, cineId);
+      console.log('Respuesta de funciones:', res);
       setFunciones(res || []);
-    } catch {
+    } catch (error) {
+      console.error('Error al cargar funciones:', error);
       setFunciones([]);
     } finally {
       setLoadingFunciones(false);
@@ -194,10 +197,15 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-6 h-6 animate-spin text-red-500" />
               </div>
+            ) : cines.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                <MapPin className="w-10 h-10 text-zinc-800 mb-3" />
+                <p className="font-medium mb-1 text-zinc-400">No Hay Cines Con Funciones Disponibles </p>
+              </div>
             ) : filteredCines.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                 <MapPin className="w-10 h-10 text-zinc-800 mb-3" />
-                <p className="font-medium mb-1 text-zinc-400">No se encontraron cines</p>
+                <p className="font-medium mb-1 text-zinc-400">No hay cines con funciones disponibles en esta ciudad</p>
               </div>
             ) : (
               <div className="divide-y divide-zinc-800/30">
@@ -217,7 +225,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
                       <ChevronRight className={`w-4 h-4 text-zinc-600 transition-transform duration-200 ${selectedCine === Number(cine.id) ? 'rotate-90 text-red-500' : ''}`} />
                     </button>
 
-                    {/* Desplegable de Horarios Internos (Sin Ocupación) */}
+                    {/* Desplegable de Horarios Internos */}
                     {selectedCine === Number(cine.id) && (
                       <div className="px-4 pb-5 pt-2 bg-zinc-950/20 border-t border-zinc-800/20 animate-in fade-in duration-200">
                         {loadingFunciones ? (
@@ -225,28 +233,41 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
                             <Loader2 className="w-5 h-5 animate-spin text-red-500" />
                           </div>
                         ) : funciones.length === 0 ? (
-                          <p className="text-sm text-zinc-500 py-4 text-center italic">No hay funciones disponibles.</p>
+                          <p className="text-sm text-zinc-500 py-4 text-center italic">No hay funciones disponibles en este cine.</p>
                         ) : (
                           <div className="space-y-4 pt-2">
-                            {Object.entries(groupedFunciones).sort().map(([date, fns]) => (
-                              <div key={date} className="border-b border-zinc-800/20 last:border-0 pb-3 last:pb-0">
-                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2.5">
-                                  {formatGroupDate(date)}
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {fns.map((fn) => (
-                                    <button
-                                      key={String(fn.id)}
-                                      disabled={fn.estado !== 'DISPONIBLE'}
-                                      onClick={() => router.push(`/movies/${id}/book/${fn.id}`)}
-                                      className="border border-zinc-700/30 bg-zinc-800 text-zinc-200 px-4 py-2 rounded-xl text-xs font-semibold hover:bg-red-600 hover:text-white hover:border-red-600 transition-all duration-150 cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed disabled:bg-zinc-900/40 disabled:border-zinc-950 disabled:text-zinc-600"
-                                    >
-                                      {format(new Date(fn.fecha_hora), 'h:mm a')}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
+                            {Object.entries(groupedFunciones).sort().map(([date, fns]) => {
+                                const funcionesDisponibles = fns.filter(f => f.estado_funcion === 'DISPONIBLE');
+                                if (funcionesDisponibles.length === 0) return null;
+                                
+                                return (
+                                  <div key={date} className="border-b border-zinc-800/20 last:border-0 pb-3 last:pb-0">
+                                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2.5">
+                                      {formatGroupDate(date)}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {funcionesDisponibles.map((fn) => {
+                                        // Extraemos directamente la hora de la cadena ISO sin convertir a objeto Date
+                                        const timePart = fn.fecha_hora.split('T')[1]; // "19:14:00.000Z"
+                                        const [hours, minutes] = timePart.split(':');
+                                        const hourNum = parseInt(hours, 10);
+                                        const ampm = hourNum >= 12 ? 'PM' : 'AM';
+                                        const formattedHours = hourNum % 12 || 12;
+                                        
+                                        return (
+                                          <button
+                                            key={String(fn.id_funcion)}
+                                            onClick={() => router.push(`/movies/${id}/book/${fn.id_funcion}`)}
+                                            className="border border-zinc-700/30 bg-zinc-800 text-zinc-200 px-4 py-2 rounded-xl text-xs font-semibold hover:bg-red-600 hover:text-white hover:border-red-600 transition-all duration-150 cursor-pointer"
+                                          >
+                                            {formattedHours}:{minutes} {ampm}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                            })}
                           </div>
                         )}
                       </div>
@@ -256,7 +277,7 @@ export default function MovieDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             )}
           </div>
-
+          
         </div>
       </div>
     </MainLayout>

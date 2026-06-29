@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { CalendarClock, Clock, Film, Pencil, Plus, Search, TicketX, X, Loader2 } from 'lucide-react';
+import { CalendarClock, Clock, Film, Pencil, Plus, Search, TicketX, X, Loader2, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { funcionesService } from '@/services/funciones.service';
 import { moviesService } from '@/services/movies.service';
@@ -106,6 +106,7 @@ export default function FunctionsAdminPage() {
   const [editingFunction, setEditingFunction] = useState<Funcion | null>(null);
   const [form, setForm] = useState<FunctionForm>(EMPTY_FORM);
   const [cancelTarget, setCancelTarget] = useState<Funcion | null>(null);
+  const [deletingFunction, setDeletingFunction] = useState<Funcion | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -222,6 +223,23 @@ export default function FunctionsAdminPage() {
     }
   }
 
+  function handleDelete(funcion: Funcion) {
+    setDeletingFunction(funcion);
+  }
+
+  async function confirmDelete() {
+    if (!deletingFunction) return;
+    try {
+      await funcionesService.remove(deletingFunction.id);
+      toast.success('Funcion eliminada correctamente');
+      setDeletingFunction(null);
+      loadFunctions();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Error al eliminar la funcion';
+      toast.error(msg);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -309,6 +327,9 @@ export default function FunctionsAdminPage() {
                         <button type="button" onClick={() => setCancelTarget(funcion)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-600/20 hover:text-red-300 transition-colors" title="Cancelar funcion">
                             <TicketX className="w-4 h-4" />
                         </button>
+                        <button type="button" onClick={() => handleDelete(funcion)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-red-900/50 hover:text-red-400 transition-colors" title="Eliminar funcion">
+                            <Trash2 className="w-4 h-4" />
+                        </button>
                         </div>
                     </td>
                     </tr>
@@ -392,6 +413,39 @@ export default function FunctionsAdminPage() {
                 </button>
                 <button type="button" onClick={confirmCancel} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">
                   Confirmar cancelacion
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {deletingFunction && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">¿Eliminar función?</h3>
+                <p className="text-sm text-zinc-400 mt-1">
+                  Esta acción no se puede deshacer. ¿Deseas eliminar esta función?
+                </p>
+              </div>
+              <div className="flex w-full gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeletingFunction(null)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-zinc-400 bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
+                  CANCELAR
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20"
+                >
+                  SÍ, ELIMINAR
                 </button>
               </div>
             </div>

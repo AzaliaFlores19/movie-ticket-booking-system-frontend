@@ -1,17 +1,25 @@
+import { funcionesService } from '@/services/funciones.service';
+import { getCines, type Cine } from '@/services/cinemas.service';
 import MainLayout from '@/components/layout/MainLayout';
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarClock, Film, Building2, Clock, MapPin, ChevronRight, Filter, X } from 'lucide-react';
 import Link from 'next/link';
-import { functionsService } from '@/services/functions.service';
 
 interface Funcion {
   id: number;
   fecha_hora: string;
   estado: string;
-  sala?: { id: number; nombre: string };
-  pelicula?: { id: number; titulo: string; poster_url?: string };
-  cine?: { id: number; nombre: string; ciudad?: { nombre: string } };
+  salas?: { 
+    id: number; 
+    nombre: string;
+    cines?: {
+        id: number;
+        nombre: string;
+        ciudad?: { nombre: string };
+    }
+  };
+  peliculas?: { id: number; titulo: string; poster_url?: string };
 }
 
 function getDateLabel(dateStr: string): string {
@@ -31,31 +39,33 @@ const STATUS_STYLES: Record<string, string> = {
 export default async function FuncionesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; estado?: string }>;
+  searchParams: Promise<{ date?: string; estado?: string; cineId?: string }>;
 }) {
-  const { date: filterDate, estado: filterEstado } = await searchParams;
+  const { date: filterDate, estado: filterEstado, cineId: filterCineId } = await searchParams;
 
-  let funciones: Funcion[] = [];
-  try {
-    funciones = await functionsService.getAll();
-  } catch {
-    funciones = [];
-  }
+  const [funciones, cines] = await Promise.all([
+    funcionesService.getAll().catch(() => []),
+    getCines().catch(() => []),
+  ]);
 
-  const filtered = funciones.filter((f) => {
+  const funcionesData = Array.isArray(funciones) ? funciones : (funciones.data || []);
+
+  const filtered = funcionesData.filter((f: Funcion) => {
+    if (f.estado !== 'DISPONIBLE') return false; // Solo disponibles
     if (filterDate && !f.fecha_hora.startsWith(filterDate)) return false;
     if (filterEstado && f.estado !== filterEstado) return false;
+    if (filterCineId && f.salas?.cines?.id.toString() !== filterCineId) return false;
     return true;
   });
 
-  const grouped = filtered.reduce<Record<string, Funcion[]>>((acc, f) => {
+  const grouped: Record<string, Funcion[]> = filtered.reduce((acc: Record<string, Funcion[]>, f: Funcion) => {
     const date = f.fecha_hora.slice(0, 10);
     if (!acc[date]) acc[date] = [];
     acc[date].push(f);
     return acc;
-  }, {});
+  }, {} as Record<string, Funcion[]>);
 
-  const hasFilters = filterDate || filterEstado;
+  const hasFilters = filterDate || filterEstado || filterCineId;
 
   return (
     <MainLayout>
@@ -86,6 +96,14 @@ export default async function FuncionesPage({
                 defaultValue={filterDate}
                 className="bg-transparent text-sm outline-none text-white scheme-dark cursor-pointer font-medium"
               />
+              <select 
+                name="cineId" 
+                defaultValue={filterCineId}
+                className="bg-[#1a1a1a] text-zinc-200 text-sm outline-none cursor-pointer font-medium border-l border-zinc-700 pl-2 rounded-lg"
+              >
+                <option value="" className="bg-[#1a1a1a] text-zinc-200">Todos los Cines</option>
+                {cines.map(cine => <option key={cine.id} value={cine.id} className="bg-[#1a1a1a] text-zinc-200">{cine.nombre}</option>)}
+              </select>
               <button type="submit" className="text-xs bg-red-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-red-500 transition-all active:scale-95 shadow-md shadow-red-900/20">
                 Filtrar
               </button>
@@ -129,14 +147,14 @@ export default async function FuncionesPage({
                       const isAvailable = fn.estado === 'DISPONIBLE';
                       
                       // Enlace de reserva dinámica
-                      const bookingUrl = fn.pelicula ? `/movies/${fn.pelicula.id}/book/${fn.id}` : '#';
+                      const bookingUrl = fn.peliculas ? `/movies/${fn.peliculas.id}/book/${fn.id}` : '#';
 
                       const CardContent = (
                         <div className="flex gap-4 p-4">
                           {/* Poster / Miniatura */}
                           <div className="shrink-0 w-16 h-24 rounded-xl overflow-hidden bg-zinc-800 shadow-inner relative">
-                            {fn.pelicula?.poster_url ? (
-                              <img src={fn.pelicula.poster_url} alt="" className="w-full h-full object-cover" />
+                            {fn.peliculas?.poster_url ? (
+                              <img src={fn.peliculas.poster_url} alt="" className="w-full h-full object-cover" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
                                 <Film className="w-5 h-5 text-zinc-600" />
@@ -149,7 +167,7 @@ export default async function FuncionesPage({
                             <div>
                               <div className="flex items-start justify-between gap-2 mb-1.5">
                                 <h3 className="font-bold text-sm text-white leading-snug line-clamp-2 tracking-tight group-hover:text-red-400 transition-colors">
-                                  {fn.pelicula?.titulo || 'Película Desconocida'}
+                                  {fn.peliculas?.titulo || 'Película Desconocida'}
                                 </h3>
                                 <span className={`shrink-0 px-2 py-0.5 text-[9px] uppercase tracking-wider font-bold rounded-md border ${statusStyle}`}>
                                   {fn.estado === 'DISPONIBLE' ? 'Disponible' : fn.estado === 'AGOTADO' ? 'Agotado' : 'Cancelado'}
@@ -157,24 +175,30 @@ export default async function FuncionesPage({
                               </div>
 
                               <div className="space-y-1">
-                                {/* Hora y Sala */}
+                                {/* Hora y Cine */}
                                 <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
                                   <Clock className="w-3.5 h-3.5 text-red-500 shrink-0 stroke-[2]" />
-                                  <span>{format(parseISO(fn.fecha_hora), 'h:mm a')}</span>
-                                  {fn.sala && (
+                                  {(() => {
+                                      const timePart = fn.fecha_hora.split('T')[1];
+                                      const [hours, minutes] = timePart.split(':');
+                                      const hourNum = parseInt(hours, 10);
+                                      const ampm = hourNum >= 12 ? 'PM' : 'AM';
+                                      const formattedHours = hourNum % 12 || 12;
+                                      return <span>{formattedHours}:{minutes} {ampm}</span>;
+                                  })()}
+                                  {fn.salas?.cines && (
                                     <span className="text-zinc-400 font-medium px-1.5 py-0.5 bg-zinc-800/60 border border-zinc-700/30 rounded text-[10px]">
-                                      {fn.sala.nombre}
+                                      {fn.salas.cines.nombre}
                                     </span>
                                   )}
                                 </div>
                                 
-                                {/* Cine y Ciudad combinados para ahorrar espacio */}
-                                {fn.cine && (
+                                {/* Ciudad */}
+                                {fn.salas?.cines?.ciudad && (
                                   <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
-                                    <Building2 className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                                    <MapPin className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                                     <span className="truncate">
-                                      {fn.cine.nombre}
-                                      {fn.cine.ciudad && <span className="text-zinc-500 font-normal"> ({fn.cine.ciudad.nombre})</span>}
+                                      {fn.salas.cines.ciudad.nombre}
                                     </span>
                                   </div>
                                 )}
@@ -199,16 +223,18 @@ export default async function FuncionesPage({
                         </div>
                       );
 
-                      // Si está disponible, toda la tarjeta es el Link para un comportamiento más nativo
-                      return isAvailable ? (
-                        <Link
-                          key={fn.id}
-                          href={bookingUrl}
-                          className="group bg-zinc-900/40 backdrop-blur-md border border-zinc-800/50 rounded-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between hover:border-zinc-700/60 hover:bg-zinc-900/80 shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
-                        >
-                          {CardContent}
-                        </Link>
-                      ) : (
+                      if (isAvailable) {
+                        return (
+                          <Link
+                            key={fn.id}
+                            href={bookingUrl}
+                            className="group bg-zinc-900/40 backdrop-blur-md border border-zinc-800/50 rounded-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between hover:border-zinc-700/60 hover:bg-zinc-900/80 shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
+                          >
+                            {CardContent}
+                          </Link>
+                        );
+                      }
+                      return (
                         <div
                           key={fn.id}
                           className="bg-zinc-900/40 backdrop-blur-md border border-zinc-800/50 rounded-2xl overflow-hidden flex flex-col justify-between opacity-40 select-none"

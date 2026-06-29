@@ -28,4 +28,8 @@ export const salasService = {
     const { data } = await axios.put(`/salas/${id}`, payload);
     return data;
   },
+  async remove(id: number): Promise<{ message: string }> {
+    const { data } = await axios.delete(`/salas/${id}`);
+    return data;
+  },
 };
