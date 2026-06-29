@@ -135,7 +135,9 @@ export default function BookPage({ params }: { params: Promise<{ id: string; fun
   );
 
   useEffect(() => {
-    const role = authService.getCurrentUser()?.role;
+    // Solo ADMIN/RECEPCIONISTA reservan a nombre de un cliente; el resto reserva
+    // a su propio nombre. Normalizamos el rol para evitar fallos por mayúsculas.
+    const role = (authService.getCurrentUser()?.role ?? '').toString().trim().toUpperCase();
     setIsStaff(STAFF_ROLES.includes(role));
 
     let active = true;

@@ -21,15 +21,12 @@ export const reservationsService = {
     return data;
   },
 
-  // Reservas/boletos del usuario en sesión.
+  // Reservas/boletos del usuario en sesión. GET /reservas ya viene filtrado por
+  // el backend según el rol del JWT: un CLIENTE solo recibe las suyas (no existe
+  // un endpoint /reservas/mias).
   async getMine(): Promise<Reservation[]> {
-    try {
-      const { data } = await axios.get<Reservation[]>('/reservas/mias');
-      return data;
-    } catch {
-      console.warn('API call failed, using mock data for my reservations');
-      return MOCK_RESERVATIONS as Reservation[];
-    }
+    const { data } = await axios.get<Reservation[]>('/reservas');
+    return Array.isArray(data) ? data : [];
   },
 
   async getAll(): Promise<Reservation[]> {
