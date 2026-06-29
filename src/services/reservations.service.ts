@@ -41,6 +41,15 @@ export const reservationsService = {
     }
   },
 
+  // Genera una reserva formal en estado PENDIENTE_DE_PAGO y aparta los asientos.
+  // POST /reservas. Propaga el error de axios (409) si algún asiento ya no está
+  // disponible, para que la UI resuelva el conflicto de concurrencia.
+  async create(payload: CreateReservaPayload): Promise<CreateReservaResponse> {
+    const { data } = await axios.post<CreateReservaResponse>('/reservas', payload);
+    return data;
+  },
+
+  // Cancela una reserva. Devuelve la reserva actualizada.
   async cancel(id: number): Promise<void> {
     try {
       await axios.patch(`/reservas/${id}/cancelar`);

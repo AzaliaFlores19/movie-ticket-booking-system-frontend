@@ -115,6 +115,18 @@ export interface AsientoFuncion {
   funcion_id?: number;
   asiento_id?: number;
   asiento: Asiento;
+  // Campos de concurrencia provenientes del mapa de asientos de la API.
+  id_usuario?: number | null;
+  bloqueado_hasta?: string | null;
+}
+
+// Cliente devuelto por GET /admin/users (búsqueda para reservas de taquilla).
+export interface ClienteBusqueda {
+  id: number;
+  nombre: string;
+  email: string;
+  telefono?: string | null;
+  estado?: string;
 }
 
 export interface ReservaFuncion {

@@ -82,6 +82,23 @@ function formatDateLabel(dateStr: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+// Resolución tolerante del shape de la función (pestaña "Nueva reserva").
+// GET /funciones devuelve peliculas/salas/salas.cines (Prisma), no pelicula/cine/sala,
+// y el precio vive en salas, no en la función.
+function fnMovie(f: Funcion) {
+  return f.pelicula ?? f.peliculas;
+}
+function fnSalaName(f: Funcion) {
+  return f.sala?.nombre ?? f.salas?.nombre;
+}
+function fnCineName(f: Funcion) {
+  return f.cine?.nombre ?? f.salas?.cines?.nombre;
+}
+function fnPrecio(f: Funcion): number | null {
+  const p = f.precio ?? f.salas?.precio;
+  return p != null ? Number(p) : null;
+}
+
 function Dropdown({
   value,
   placeholder,
@@ -284,7 +301,7 @@ export default function ReservationsAdminPage() {
   }, [funciones]);
 
   const cineOptions = useMemo(
-    () => Array.from(new Set(availableFunctions.map((f) => f.cine?.nombre).filter(Boolean) as string[])),
+    () => Array.from(new Set(availableFunctions.map((f) => fnCineName(f)).filter(Boolean) as string[])),
     [availableFunctions]
   );
 
@@ -292,13 +309,13 @@ export default function ReservationsAdminPage() {
     return availableFunctions.filter((f) => {
       const day = f.fecha_hora.slice(0, 10); // YYYY-MM-DD
       if (search) {
-        const haystack = [f.pelicula?.titulo, f.cine?.nombre, f.sala?.nombre]
+        const haystack = [fnMovie(f)?.titulo, fnCineName(f), fnSalaName(f)]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
         if (!haystack.includes(search.toLowerCase())) return false;
       }
-      if (cine && f.cine?.nombre !== cine) return false;
+      if (cine && fnCineName(f) !== cine) return false;
       if (dateFrom && day < dateFrom) return false;
       if (dateTo && day > dateTo) return false;
       return true;
@@ -598,20 +615,23 @@ export default function ReservationsAdminPage() {
                     </td>
                   </tr>
                 ) : (
-                  fPaginated.map((fn) => (
+                  fPaginated.map((fn) => {
+                    const movie = fnMovie(fn);
+                    const precio = fnPrecio(fn);
+                    return (
                     <tr key={fn.id} className="hover:bg-zinc-900/50 transition-colors">
                       <td className="px-4 py-3">
                         <div className="w-10 h-14 rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center shrink-0">
-                          {fn.pelicula?.poster_url ? (
+                          {movie?.poster_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={fn.pelicula.poster_url} alt="" className="w-full h-full object-cover" />
+                            <img src={movie.poster_url} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <Film className="w-4 h-4 text-zinc-600" />
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3 font-medium text-zinc-100">
-                        {fn.pelicula?.titulo ?? '—'}
+                        {movie?.titulo ?? '—'}
                       </td>
                       <td className="px-4 py-3 text-zinc-300">
                         {formatDateLabel(fn.fecha_hora)}
@@ -625,12 +645,12 @@ export default function ReservationsAdminPage() {
                       <td className="px-4 py-3 text-zinc-400">
                         <span className="inline-flex items-center gap-1.5">
                           <Building2 className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-                          {fn.cine?.nombre ?? '—'}
+                          {fnCineName(fn) ?? '—'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-zinc-400">{fn.sala?.nombre ?? '—'}</td>
+                      <td className="px-4 py-3 text-zinc-400">{fnSalaName(fn) ?? '—'}</td>
                       <td className="px-4 py-3 font-semibold text-zinc-100">
-                        {fn.precio != null ? `L${fn.precio.toLocaleString('es-MX')}` : '—'}
+                        {precio != null ? `L${precio.toLocaleString('es-MX')}` : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-600/20 text-green-400 border border-green-500/30">
@@ -638,9 +658,9 @@ export default function ReservationsAdminPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {fn.pelicula?.id != null ? (
+                        {movie?.id != null ? (
                           <Link
-                            href={`/movies/${fn.pelicula.id}/book/${fn.id}`}
+                            href={`/movies/${movie.id}/book/${fn.id}`}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-500 transition-colors active:scale-95"
                           >
                             <Ticket className="w-3.5 h-3.5" />
@@ -652,7 +672,8 @@ export default function ReservationsAdminPage() {
                         )}
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
